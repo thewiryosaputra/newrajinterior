@@ -2,8 +2,8 @@ import { ConflictException, Injectable, UnauthorizedException } from "@nestjs/co
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
 import { DatabaseService } from "../database/database.service";
-import { VerificationService, normalizePhone } from "../verification/verification.service";
-import { LoginDto, RegisterDto, ResendVerificationDto, VerifyWhatsappDto } from "./auth.dto";
+import { hashToken, normalizePhone, VerificationService } from "../verification/verification.service";
+import { LoginDto, RegisterDto, ResendVerificationDto, SetupPasswordDto, VerifyWhatsappDto } from "./auth.dto";
 
 type UserRow = {
   id: string;
@@ -82,6 +82,33 @@ export class AuthService {
       user: sanitizeUser(user),
       accessToken: await this.signUser(user),
       verificationRequired: { email: false, whatsapp: false },
+    };
+  }
+
+  async setupPassword(dto: SetupPasswordDto) {
+    const result = await this.db.query<UserRow & { token_id: string }>(
+      `SELECT users.id, users.name, users.email, users.phone, users.password_hash, users.role,
+        users.email_verified_at, users.whatsapp_verified_at, password_setup_tokens.id AS token_id
+       FROM password_setup_tokens
+       JOIN users ON users.id = password_setup_tokens.user_id
+       WHERE password_setup_tokens.token_hash = $1
+        AND password_setup_tokens.consumed_at IS NULL
+        AND password_setup_tokens.expires_at > now()
+       ORDER BY password_setup_tokens.created_at DESC
+       LIMIT 1`,
+      [hashToken(dto.token)],
+    );
+    const user = result.rows[0];
+    if (!user) throw new UnauthorizedException("Link setup password tidak valid atau sudah kedaluwarsa.");
+
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+    await this.db.query("UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2", [passwordHash, user.id]);
+    await this.db.query("UPDATE password_setup_tokens SET consumed_at = now() WHERE id = $1", [user.token_id]);
+
+    return {
+      user: sanitizeUser(user),
+      accessToken: await this.signUser(user),
+      message: "Password berhasil dibuat. Anda sudah masuk ke dashboard customer.",
     };
   }
 

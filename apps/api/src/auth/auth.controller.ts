@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Post, Query } from "@nestjs/common";
 import { AuthService } from "./auth.service";
-import { LoginDto, RegisterDto, ResendVerificationDto, VerifyWhatsappDto } from "./auth.dto";
+import { LoginDto, RegisterDto, ResendVerificationDto, SetupPasswordDto, VerifyWhatsappDto } from "./auth.dto";
 
 @Controller("auth")
 export class AuthController {
@@ -19,6 +19,11 @@ export class AuthController {
   @Post("resend-verification")
   resendVerification(@Body() dto: ResendVerificationDto) {
     return this.auth.resendVerification(dto);
+  }
+
+  @Post("setup-password")
+  setupPassword(@Body() dto: SetupPasswordDto) {
+    return this.auth.setupPassword(dto);
   }
 
   @Get("verify-email")

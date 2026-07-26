@@ -34,6 +34,22 @@ export class VerificationService {
     }
   }
 
+  async sendPasswordSetupEmail(target: string, token: string) {
+    const appUrl = this.config.get<string>("APP_URL", "http://localhost:3000");
+    const setupUrl = `${appUrl}/setup-password?token=${token}&email=${encodeURIComponent(target)}`;
+
+    try {
+      await this.sendEmail(
+        target,
+        "Setup password akun New Raj Interior",
+        `Request invitation Anda sudah disetujui. Buat password akun melalui link berikut: ${setupUrl}\n\nLink berlaku 24 jam.`,
+        `<p>Request invitation Anda sudah disetujui.</p><p><a href="${setupUrl}">Setup Password</a></p><p>Link berlaku 24 jam.</p><p>Website: ${appUrl}</p>`,
+      );
+    } catch (error) {
+      this.logger.warn(`Email setup password untuk ${target} gagal dikirim: ${getErrorMessage(error)}`);
+    }
+  }
+
   async sendWhatsappOtp(target: string, userId?: string) {
     const otp = String(randomInt(100000, 999999));
     await this.storeToken({ target: normalizePhone(target), channel: "whatsapp", token: otp, userId, minutes: 10 });
@@ -49,7 +65,13 @@ export class VerificationService {
     if (row.user_id) {
       await this.db.query("UPDATE users SET email_verified_at = now(), updated_at = now() WHERE id = $1", [row.user_id]);
     }
-    await this.db.query("UPDATE invitation_requests SET email_verified_at = now(), updated_at = now() WHERE lower(email) = lower($1) AND email_verified_at IS NULL", [email]);
+    await this.db.query(
+      `UPDATE invitation_requests
+       SET email_verified_at = now(), updated_at = now(),
+           status = CASE WHEN whatsapp_verified_at IS NOT NULL THEN 'pending_approval' ELSE status END
+       WHERE lower(email) = lower($1) AND email_verified_at IS NULL`,
+      [email],
+    );
     return { verified: true };
   }
 
@@ -59,7 +81,13 @@ export class VerificationService {
     if (row.user_id) {
       await this.db.query("UPDATE users SET whatsapp_verified_at = now(), updated_at = now() WHERE id = $1", [row.user_id]);
     }
-    await this.db.query("UPDATE invitation_requests SET whatsapp_verified_at = now(), updated_at = now() WHERE phone = $1 AND whatsapp_verified_at IS NULL", [phone]);
+    await this.db.query(
+      `UPDATE invitation_requests
+       SET whatsapp_verified_at = now(), updated_at = now(),
+           status = CASE WHEN email_verified_at IS NOT NULL THEN 'pending_approval' ELSE status END
+       WHERE phone = $1 AND whatsapp_verified_at IS NULL`,
+      [normalized],
+    );
     return { verified: true };
   }
 
@@ -95,7 +123,7 @@ export class VerificationService {
     const pass = this.config.get<string>("SMTP_PASS");
 
     if (!host || !user || !pass) {
-      this.logger.warn(`SMTP belum dikonfigurasi. Email verifikasi untuk ${to} tidak dikirim.`);
+      this.logger.warn(`SMTP belum dikonfigurasi. Email untuk ${to} tidak dikirim.`);
       return;
     }
 
@@ -109,7 +137,7 @@ export class VerificationService {
 
     await transporter.sendMail({
       to,
-      from: this.config.get<string>("EMAIL_FROM", "New Raj Interior <no-reply@newrajinterior.xyz>"),
+      from: this.config.get<string>("EMAIL_FROM", "New Raj Interior <admin@newrajinterior.xyz>"),
       subject,
       text,
       html,
@@ -142,7 +170,7 @@ export class VerificationService {
   }
 }
 
-function hashToken(value: string) {
+export function hashToken(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
 
@@ -152,6 +180,7 @@ export function normalizePhone(value: string) {
   if (digits.startsWith("62")) return digits;
   return digits;
 }
+
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }

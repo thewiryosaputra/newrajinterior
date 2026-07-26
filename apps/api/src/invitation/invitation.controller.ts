@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Headers, Param, Post, Query } from "@nestjs/common";
 import { CreateInvitationRequestDto, VerifyInvitationWhatsappDto } from "./invitation.dto";
 import { InvitationService } from "./invitation.service";
 
@@ -24,6 +24,11 @@ export class InvitationController {
   @Post("verify-whatsapp")
   verifyWhatsapp(@Body() dto: VerifyInvitationWhatsappDto) {
     return this.invitation.verifyWhatsapp(dto);
+  }
+
+  @Post(":id/approve")
+  approveRequest(@Param("id") id: string, @Headers("authorization") authorization?: string) {
+    return this.invitation.approveRequest(id, authorization);
   }
 
   @Get(":id")

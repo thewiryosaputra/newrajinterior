@@ -27,6 +27,16 @@ export class LoginDto {
   password!: string;
 }
 
+export class SetupPasswordDto {
+  @IsString()
+  @IsNotEmpty()
+  token!: string;
+
+  @IsString()
+  @MinLength(8)
+  password!: string;
+}
+
 export class VerifyWhatsappDto {
   @IsString()
   @IsNotEmpty()

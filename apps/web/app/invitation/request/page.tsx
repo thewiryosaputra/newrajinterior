@@ -1,13 +1,21 @@
+﻿"use client";
+
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRightIcon,
   BriefcaseIcon,
   CalendarDaysIcon,
   ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   ClipboardDocumentCheckIcon,
+  CurrencyDollarIcon,
   EnvelopeIcon,
   GlobeAltIcon,
+  MapIcon,
   MapPinIcon,
   PhoneIcon,
   ShieldCheckIcon,
@@ -16,6 +24,18 @@ import {
 } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+const LocationMap = dynamic(
+  () => import("@/components/invitation-location-map"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full min-h-[280px] items-center justify-center rounded-lg bg-[#f8f4ea] text-sm text-muted-foreground">
+        Memuat peta...
+      </div>
+    ),
+  },
+);
 
 const benefits = [
   {
@@ -35,7 +55,115 @@ const benefits = [
   },
 ];
 
+const projectTypes = [
+  "Kitchen Set",
+  "Bathroom Cabinet",
+  "Wardrobe",
+  "Living Room",
+  "Bedroom Interior",
+  "Office Interior",
+  "Full Interior Package",
+];
+
+const budgetRanges = [
+  "Di bawah Rp 25 juta",
+  "Rp 25 juta - Rp 50 juta",
+  "Rp 50 juta - Rp 100 juta",
+  "Rp 100 juta - Rp 250 juta",
+  "Di atas Rp 250 juta",
+];
+
+const monthNames = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+const dayNames = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+const defaultPosition = { lat: -6.175392, lng: 106.827153 };
+
+type AddressSuggestion = {
+  place_id: number;
+  display_name: string;
+  lat: string;
+  lon: string;
+  address?: {
+    road?: string;
+    suburb?: string;
+    village?: string;
+    town?: string;
+    city?: string;
+    county?: string;
+    state?: string;
+    postcode?: string;
+  };
+};
+
 export default function InvitationRequestPage() {
+  const [address, setAddress] = useState("");
+  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [position, setPosition] = useState(defaultPosition);
+  const [selectedDate, setSelectedDate] = useState(new Date(2026, 6, 28));
+  const [calendarMonth, setCalendarMonth] = useState(new Date(2026, 6, 1));
+  const [projectType, setProjectType] = useState(projectTypes[0]);
+  const [budget, setBudget] = useState(budgetRanges[2]);
+
+  useEffect(() => {
+    if (address.trim().length < 3) {
+      setSuggestions([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const params = new URLSearchParams({
+          q: address,
+          format: "jsonv2",
+          addressdetails: "1",
+          limit: "5",
+          countrycodes: "id",
+        });
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?${params.toString()}`,
+          { signal: controller.signal },
+        );
+        const data = (await response.json()) as AddressSuggestion[];
+        setSuggestions(data);
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setSuggestions([]);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsSearching(false);
+        }
+      }
+    }, 450);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [address]);
+
+  function selectAddress(item: AddressSuggestion) {
+    setAddress(item.display_name);
+    setPosition({ lat: Number(item.lat), lng: Number(item.lon) });
+    setSuggestions([]);
+  }
+
   return (
     <main className="min-h-screen overflow-hidden bg-[#fbfaf7] text-newraj-ink">
       <div className="grid min-h-screen lg:grid-cols-[34%_66%]">
@@ -67,7 +195,8 @@ export default function InvitationRequestPage() {
               </h1>
               <div className="mx-auto mt-5 h-px w-40 bg-newraj-gold" />
               <p className="mx-auto mt-8 max-w-xs text-lg leading-8 text-white/86">
-                Lengkapi data customer dan project sebelum invitation dikirimkan.
+                Lengkapi data customer, jadwal survey, dan pin point project
+                sebelum invitation dikirimkan.
               </p>
             </div>
 
@@ -111,8 +240,9 @@ export default function InvitationRequestPage() {
                   <div className="h-px flex-1 bg-newraj-gold" />
                 </div>
                 <p className="mt-5 text-lg leading-8 text-muted-foreground">
-                  Isi data awal customer dan project. Setelah lengkap, sistem
-                  akan menampilkan halaman invitation untuk customer.
+                  Isi data awal customer, project, alamat lengkap, dan jadwal
+                  survey. Setelah lengkap, sistem akan menampilkan halaman
+                  invitation untuk customer.
                 </p>
               </div>
 
@@ -136,24 +266,70 @@ export default function InvitationRequestPage() {
                     placeholder="customer@email.com"
                     icon={EnvelopeIcon}
                   />
-                  <Field
-                    id="survey-date"
-                    label="Jadwal Survey"
-                    placeholder="Pilih tanggal survey"
-                    icon={CalendarDaysIcon}
+                  <DatePicker
+                    value={selectedDate}
+                    calendarMonth={calendarMonth}
+                    onMonthChange={setCalendarMonth}
+                    onChange={setSelectedDate}
                   />
                 </div>
 
-                <Field
-                  id="address"
-                  label="Alamat Project"
-                  placeholder="Contoh: Jln. Dukuh Indah 15, Kerobokan."
-                  icon={MapPinIcon}
-                />
-
                 <div className="grid gap-5 md:grid-cols-2">
-                  <SelectLike label="Tipe Project" value="Kitchen Set" />
-                  <SelectLike label="Estimasi Budget" value="Rp 50 juta - Rp 100 juta" />
+                  <SelectField
+                    icon={BriefcaseIcon}
+                    label="Tipe Project"
+                    value={projectType}
+                    options={projectTypes}
+                    onChange={setProjectType}
+                  />
+                  <SelectField
+                    icon={CurrencyDollarIcon}
+                    label="Estimasi Budget"
+                    value={budget}
+                    options={budgetRanges}
+                    onChange={setBudget}
+                  />
+                </div>
+
+                <div className="rounded-lg border border-newraj-gold/25 bg-[#fffdf8] p-5">
+                  <div className="mb-5 flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-[#b87900]">
+                      <MapIcon className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Pin Point Alamat Project</p>
+                      <p className="text-sm text-muted-foreground">
+                        Ketik alamat, pilih suggestion, lalu geser pin bila perlu.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
+                    <div className="space-y-4">
+                      <AddressAutocomplete
+                        address={address}
+                        isSearching={isSearching}
+                        suggestions={suggestions}
+                        onAddressChange={setAddress}
+                        onSelectAddress={selectAddress}
+                      />
+
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <ReadOnlyValue label="Latitude" value={position.lat.toFixed(6)} />
+                        <ReadOnlyValue label="Longitude" value={position.lng.toFixed(6)} />
+                      </div>
+
+                      <p className="rounded-lg border border-newraj-gold/30 bg-[#fff8e8] p-4 text-sm leading-7 text-newraj-charcoal">
+                        Peta menggunakan Leaflet dan OpenStreetMap. Data alamat
+                        dari autocomplete gratis OpenStreetMap/Nominatim untuk
+                        kebutuhan awal CRM.
+                      </p>
+                    </div>
+
+                    <div className="overflow-hidden rounded-lg border bg-white shadow-sm">
+                      <LocationMap position={position} onChange={setPosition} />
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -171,8 +347,8 @@ export default function InvitationRequestPage() {
                   <p className="font-semibold">Preview invitation</p>
                   <p className="mt-2 text-sm leading-7 text-newraj-charcoal">
                     Data ini akan dipakai untuk membuat undangan project customer.
-                    Nanti backend akan menyimpan data dan membuat invitation link
-                    unik.
+                    Nanti backend akan menyimpan data, koordinat pin point, dan
+                    membuat invitation link unik.
                   </p>
                 </div>
 
@@ -228,20 +404,248 @@ function Field({
   );
 }
 
-function SelectLike({ label, value }: { label: string; value: string }) {
+function AddressAutocomplete({
+  address,
+  isSearching,
+  suggestions,
+  onAddressChange,
+  onSelectAddress,
+}: {
+  address: string;
+  isSearching: boolean;
+  suggestions: AddressSuggestion[];
+  onAddressChange: (value: string) => void;
+  onSelectAddress: (value: AddressSuggestion) => void;
+}) {
+  return (
+    <div className="relative">
+      <label className="text-sm font-semibold" htmlFor="address">
+        Alamat Project
+      </label>
+      <div className="relative mt-3">
+        <MapPinIcon className="absolute left-4 top-3 h-5 w-5 text-muted-foreground" />
+        <Input
+          id="address"
+          className="h-12 pl-12 pr-28"
+          placeholder="Ketik alamat project, contoh: Kerobokan Bali"
+          value={address}
+          onChange={(event) => onAddressChange(event.target.value)}
+        />
+        <span className="absolute right-4 top-3 text-xs font-medium text-muted-foreground">
+          {isSearching ? "Mencari..." : "OSM"}
+        </span>
+      </div>
+
+      {suggestions.length > 0 ? (
+        <div className="absolute z-[1200] mt-2 max-h-72 w-full overflow-auto rounded-lg border bg-white p-2 shadow-soft">
+          {suggestions.map((item) => (
+            <button
+              className="w-full rounded-md px-3 py-3 text-left text-sm leading-6 hover:bg-[#fff8e8]"
+              key={item.place_id}
+              onClick={() => onSelectAddress(item)}
+              type="button"
+            >
+              <span className="block font-semibold text-newraj-ink">
+                {formatAddressTitle(item)}
+              </span>
+              <span className="mt-1 block text-muted-foreground">
+                {item.display_name}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function formatAddressTitle(item: AddressSuggestion) {
+  const address = item.address;
+  return (
+    address?.road ||
+    address?.suburb ||
+    address?.village ||
+    address?.town ||
+    address?.city ||
+    item.display_name.split(",")[0]
+  );
+}
+
+function ReadOnlyValue({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <label className="text-sm font-semibold">{label}</label>
+      <div className="mt-3 flex h-12 items-center rounded-md border border-input bg-white px-4 text-sm shadow-sm">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  options,
+  onChange,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+}) {
+  return (
+    <div>
+      <label className="text-sm font-semibold" htmlFor={label}>
+        {label}
+      </label>
+      <div className="relative mt-3">
+        <Icon className="pointer-events-none absolute left-4 top-3 h-5 w-5 text-muted-foreground" />
+        <select
+          id={label}
+          className="h-12 w-full appearance-none rounded-md border border-input bg-white px-12 text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+        <ChevronDownIcon className="pointer-events-none absolute right-4 top-4 h-4 w-4 text-muted-foreground" />
+      </div>
+    </div>
+  );
+}
+
+function DatePicker({
+  value,
+  calendarMonth,
+  onMonthChange,
+  onChange,
+}: {
+  value: Date;
+  calendarMonth: Date;
+  onMonthChange: (date: Date) => void;
+  onChange: (date: Date) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const days = useMemo(() => getCalendarDays(calendarMonth), [calendarMonth]);
+
+  const selectedKey = toDateKey(value);
+  const displayValue = new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(value);
+
+  function moveMonth(amount: number) {
+    onMonthChange(
+      new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + amount, 1),
+    );
+  }
+
+  return (
+    <div className="relative">
+      <label className="text-sm font-semibold" htmlFor="survey-date">
+        Jadwal Survey
+      </label>
       <button
-        className="mt-3 flex h-12 w-full items-center justify-between rounded-md border border-input bg-white px-4 text-left text-sm shadow-sm"
+        className="mt-3 flex h-12 w-full items-center justify-between rounded-md border border-input bg-white px-4 text-left text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+        id="survey-date"
+        onClick={() => setOpen((current) => !current)}
         type="button"
       >
         <span className="flex items-center gap-3">
-          <BriefcaseIcon className="h-5 w-5 text-muted-foreground" />
-          {value}
+          <CalendarDaysIcon className="h-5 w-5 text-muted-foreground" />
+          {displayValue}
         </span>
         <ChevronDownIcon className="h-4 w-4 text-muted-foreground" />
       </button>
+
+      {open ? (
+        <div className="absolute z-[1300] mt-3 w-full min-w-[320px] rounded-lg border bg-white p-4 shadow-soft sm:w-[360px]">
+          <div className="mb-5 flex items-center justify-between">
+            <button
+              className="flex h-10 w-10 items-center justify-center rounded-lg border hover:bg-muted"
+              onClick={() => moveMonth(-1)}
+              type="button"
+              aria-label="Previous month"
+            >
+              <ChevronLeftIcon className="h-5 w-5" />
+            </button>
+            <button
+              className="flex items-center gap-2 text-base font-semibold"
+              type="button"
+            >
+              {monthNames[calendarMonth.getMonth()]} {calendarMonth.getFullYear()}
+              <ChevronDownIcon className="h-4 w-4" />
+            </button>
+            <button
+              className="flex h-10 w-10 items-center justify-center rounded-lg border hover:bg-muted"
+              onClick={() => moveMonth(1)}
+              type="button"
+              aria-label="Next month"
+            >
+              <ChevronRightIcon className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-7 gap-2 text-center text-sm text-muted-foreground">
+            {dayNames.map((day) => (
+              <div key={day}>{day}</div>
+            ))}
+          </div>
+
+          <div className="mt-3 grid grid-cols-7 gap-2 text-center text-sm">
+            {days.map((day) => {
+              const isCurrentMonth = day.getMonth() === calendarMonth.getMonth();
+              const isSelected = toDateKey(day) === selectedKey;
+
+              return (
+                <button
+                  className={[
+                    "relative flex h-10 items-center justify-center rounded-full transition-colors",
+                    isSelected
+                      ? "bg-[#d99a00] font-semibold text-white shadow-[0_8px_18px_rgba(217,154,0,0.28)]"
+                      : "hover:bg-[#fff8e8]",
+                    isCurrentMonth ? "text-newraj-ink" : "text-muted-foreground/50",
+                  ].join(" ")}
+                  key={toDateKey(day)}
+                  onClick={() => {
+                    onChange(day);
+                    setOpen(false);
+                  }}
+                  type="button"
+                >
+                  {day.getDate()}
+                  {isSelected ? (
+                    <span className="absolute -bottom-1 h-1 w-1 rounded-full bg-[#d99a00]" />
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
+}
+
+function getCalendarDays(month: Date) {
+  const year = month.getFullYear();
+  const monthIndex = month.getMonth();
+  const firstDay = new Date(year, monthIndex, 1);
+  const firstWeekDay = (firstDay.getDay() + 6) % 7;
+  const start = new Date(year, monthIndex, 1 - firstWeekDay);
+
+  return Array.from({ length: 42 }, (_, index) => {
+    return new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
+  });
+}
+
+function toDateKey(date: Date) {
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }

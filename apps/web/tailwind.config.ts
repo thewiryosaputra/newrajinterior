@@ -48,8 +48,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        display: ["var(--font-playfair)", "serif"],
-        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
+        display: ["Georgia", "Times New Roman", "serif"],
+        sans: ["Inter", "Segoe UI", "system-ui", "sans-serif"],
       },
       boxShadow: {
         soft: "0 18px 55px rgba(17, 17, 17, 0.08)",

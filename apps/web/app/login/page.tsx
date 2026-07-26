@@ -1,23 +1,24 @@
+"use client";
+
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { FormEvent, useState } from "react";
 import {
-  CalendarDaysIcon,
   ChartBarIcon,
-  ChatBubbleLeftRightIcon,
   CheckIcon,
   ChevronDownIcon,
   ClipboardDocumentCheckIcon,
   EnvelopeIcon,
+  EyeIcon,
   EyeSlashIcon,
   GlobeAltIcon,
-  HomeIcon,
   LockClosedIcon,
-  MagnifyingGlassIcon,
   ShieldCheckIcon,
-  SparklesIcon,
-  UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+const API_BASE_URL = "https://api.newrajinterior.xyz/api";
 
 const benefits = [
   {
@@ -37,7 +38,86 @@ const benefits = [
   },
 ];
 
+type LoginResponse = {
+  accessToken: string | null;
+  message?: string;
+  verificationRequired?: {
+    email: boolean;
+    whatsapp: boolean;
+  };
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    role: string;
+    emailVerified: boolean;
+    whatsappVerified: boolean;
+  };
+};
+
 export default function LoginPage() {
+  const router = useRouter();
+  const [account, setAccount] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [messageType, setMessageType] = useState<"error" | "warning" | "success">("error");
+
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage(null);
+
+    if (!account.trim() || !password) {
+      setMessageType("error");
+      setMessage("Email/no. telepon dan password wajib diisi.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ account: account.trim(), password }),
+      });
+      const data = (await response.json().catch(() => ({}))) as Partial<LoginResponse> & {
+        message?: string | string[];
+      };
+
+      if (!response.ok) {
+        setMessageType("error");
+        setMessage(formatApiMessage(data.message) || "Login gagal. Periksa kembali akun Anda.");
+        return;
+      }
+
+      if (!data.accessToken) {
+        const needsEmail = data.verificationRequired?.email;
+        const needsWhatsapp = data.verificationRequired?.whatsapp;
+        const channels = [needsEmail ? "email" : null, needsWhatsapp ? "WhatsApp" : null]
+          .filter(Boolean)
+          .join(" dan ");
+        setMessageType("warning");
+        setMessage(data.message || `Akun Anda perlu verifikasi ${channels} sebelum masuk.`);
+        return;
+      }
+
+      window.localStorage.setItem("newraj_access_token", data.accessToken);
+      if (data.user) {
+        window.localStorage.setItem("newraj_user", JSON.stringify(data.user));
+      }
+      setMessageType("success");
+      setMessage("Login berhasil. Membuka dashboard...");
+      router.push("/dashboard");
+    } catch (error) {
+      setMessageType("error");
+      setMessage("Tidak bisa terhubung ke server API. Coba lagi sebentar.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#fbfaf7] text-newraj-ink">
       <div className="grid min-h-screen lg:grid-cols-[45%_55%]">
@@ -90,7 +170,7 @@ export default function LoginPage() {
 
         <section className="flex min-h-screen flex-col px-5 py-6 sm:px-10">
           <div className="flex justify-end">
-            <button className="flex h-12 items-center gap-3 rounded-lg border bg-white px-5 text-sm font-medium shadow-sm">
+            <button className="flex h-12 items-center gap-3 rounded-lg border bg-white px-5 text-sm font-medium shadow-sm" type="button">
               <GlobeAltIcon className="h-5 w-5" />
               Bahasa Indonesia
               <ChevronDownIcon className="h-4 w-4" />
@@ -113,17 +193,20 @@ export default function LoginPage() {
                 Masuk untuk mengakses akun Anda
               </p>
 
-              <form className="mt-9 space-y-6">
+              <form className="mt-9 space-y-6" onSubmit={handleLogin}>
                 <div>
-                  <label className="text-sm font-semibold" htmlFor="email">
+                  <label className="text-sm font-semibold" htmlFor="account">
                     Email atau No. Telepon
                   </label>
                   <div className="relative mt-3">
                     <EnvelopeIcon className="absolute left-4 top-3 h-5 w-5 text-muted-foreground" />
                     <Input
-                      id="email"
+                      id="account"
+                      autoComplete="username"
                       className="h-12 pl-12"
                       placeholder="Masukkan email atau nomor telepon"
+                      value={account}
+                      onChange={(event) => setAccount(event.target.value)}
                     />
                   </div>
                 </div>
@@ -136,11 +219,21 @@ export default function LoginPage() {
                     <LockClosedIcon className="absolute left-4 top-3 h-5 w-5 text-muted-foreground" />
                     <Input
                       id="password"
-                      type="password"
+                      autoComplete="current-password"
+                      type={showPassword ? "text" : "password"}
                       className="h-12 pl-12 pr-12"
                       placeholder="Masukkan password"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
                     />
-                    <EyeSlashIcon className="absolute right-4 top-3 h-5 w-5 text-muted-foreground" />
+                    <button
+                      className="absolute right-4 top-3 text-muted-foreground"
+                      onClick={() => setShowPassword((current) => !current)}
+                      type="button"
+                      aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                    >
+                      {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+                    </button>
                   </div>
                 </div>
 
@@ -159,8 +252,23 @@ export default function LoginPage() {
                   </a>
                 </div>
 
-                <Button className="h-12 w-full text-base" type="button">
-                  Login
+                {message ? (
+                  <div
+                    className={[
+                      "rounded-lg border px-4 py-3 text-sm leading-6",
+                      messageType === "success"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : messageType === "warning"
+                          ? "border-amber-200 bg-amber-50 text-amber-800"
+                          : "border-red-200 bg-red-50 text-red-700",
+                    ].join(" ")}
+                  >
+                    {message}
+                  </div>
+                ) : null}
+
+                <Button className="h-12 w-full text-base" disabled={isLoading} type="submit">
+                  {isLoading ? "Memproses..." : "Login"}
                 </Button>
 
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -213,4 +321,9 @@ export default function LoginPage() {
       </div>
     </main>
   );
+}
+
+function formatApiMessage(message: string | string[] | undefined) {
+  if (Array.isArray(message)) return message.join(" ");
+  return message;
 }

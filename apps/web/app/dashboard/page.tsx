@@ -1,0 +1,411 @@
+import Image from "next/image";
+import {
+  BellIcon,
+  BriefcaseIcon,
+  CalendarDaysIcon,
+  ChartBarIcon,
+  CheckBadgeIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ClipboardDocumentCheckIcon,
+  ClipboardDocumentListIcon,
+  ClockIcon,
+  Cog6ToothIcon,
+  CreditCardIcon,
+  DocumentTextIcon,
+  EllipsisVerticalIcon,
+  EnvelopeIcon,
+  FolderIcon,
+  HomeIcon,
+  MagnifyingGlassIcon,
+  QueueListIcon,
+  ShieldCheckIcon,
+  UserGroupIcon,
+  UsersIcon,
+  WrenchScrewdriverIcon,
+} from "@heroicons/react/24/outline";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+
+const navItems = [
+  ["Dashboard", HomeIcon, true],
+  ["Project", BriefcaseIcon, false],
+  ["BOQ", ClipboardDocumentListIcon, false],
+  ["Kontrak", DocumentTextIcon, false],
+  ["Invoice & Pembayaran", CreditCardIcon, false],
+  ["Tugas", QueueListIcon, false],
+  ["Progress", ClockIcon, false],
+  ["Dokumen", FolderIcon, false],
+  ["Notifikasi", BellIcon, false],
+  ["Laporan", ChartBarIcon, false],
+  ["Client", UsersIcon, false],
+  ["Tim", UserGroupIcon, false],
+  ["Pengaturan", Cog6ToothIcon, false],
+] as const;
+
+const stats = [
+  { label: "Total Project", value: "24", sub: "Semua Project", icon: ClipboardDocumentCheckIcon, dark: true },
+  { label: "Dalam Proses", value: "12", sub: "Project Aktif", icon: BriefcaseIcon },
+  { label: "Dalam Antrian", value: "5", sub: "Menunggu Jadwal", icon: ClockIcon },
+  { label: "Selesai", value: "7", sub: "Project Selesai", icon: CheckBadgeIcon },
+];
+
+const stages = [
+  { name: "Pengukuran", count: 4, body: "Survey & Ukur", color: "#d99a00", icon: CalendarDaysIcon },
+  { name: "Desain", count: 3, body: "Proses Desain", color: "#e8743b", icon: WrenchScrewdriverIcon },
+  { name: "Produksi", count: 3, body: "Proses Produksi", color: "#6b85c4", icon: Cog6ToothIcon },
+  { name: "Instalasi", count: 2, body: "Pemasangan", color: "#27a8a0", icon: UserGroupIcon },
+  { name: "Selesai", count: 7, body: "Project Selesai", color: "#65b95a", icon: ShieldCheckIcon },
+];
+
+const projects = [
+  ["Villa Kencana", "Kitchen Set & Interior", "Budi Santoso", "Desain", 65, "20 Mei 2027", "Dian"],
+  ["Rumah Kebon Jeruk", "Kitchen Set", "Andi Wijaya", "Produksi", 90, "15 Mei 2027", "Dian"],
+  ["Apartemen Taman Anggrek", "Kitchen Set & Wardrobe", "Maria Claudia", "Instalasi", 70, "25 Mei 2027", "Rizky"],
+  ["Ruko Sunter", "Kitchen Set & Display", "Jonathan", "Dalam Antrian", 0, "Menunggu Jadwal", "Dian"],
+] as const;
+
+const notifications = [
+  ["Design project Villa Kencana siap dipresentasikan", "Interior Designer mengirim info design siap presentasi", "10 menit lalu", "#d99a00"],
+  ["Invoice Termin 1 telah dibayar", "Pembayaran diterima dan sedang diverifikasi", "30 menit lalu", "#27a8a0"],
+  ["BOQ #BOQ-2025-004 telah disetujui client", "Menunggu tanda tangan kontrak", "1 jam lalu", "#65b95a"],
+  ["Progress project Rumah Kebon Jeruk 90%", "Sistem mengirimkan tagihan Termin 2", "3 jam lalu", "#e8743b"],
+  ["Dokumen kontrak sudah ditandatangani client", "Siap untuk proses pembayaran", "5 jam lalu", "#9ca3af"],
+] as const;
+
+const finance = [
+  ["Sudah Dibayar", "Rp 456.750.000", "36.7%", "text-emerald-600"],
+  ["Sisa Tagihan", "Rp 789.050.000", "", ""],
+  ["Tunggakan", "Rp 12.450.000", "", "text-red-600"],
+] as const;
+
+const paymentBreakdown = [
+  ["Termin 1 (DP)", "36.7%", "Rp 456.750.000", "bg-[#d99a00]"],
+  ["Termin 2 (Progres)", "28.3%", "Rp 352.500.000", "bg-[#6b85c4]"],
+  ["Termin 3 (Pelunasan)", "32.1%", "Rp 400.500.000", "bg-[#65b95a]"],
+  ["Tunggakan", "2.9%", "Rp 36.050.000", "bg-[#ef4444]"],
+] as const;
+
+export default function DashboardPage() {
+  return (
+    <main className="min-h-screen bg-[#fbfaf7] text-newraj-ink">
+      <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
+        <aside className="hidden min-h-screen bg-[#070908] px-4 py-8 text-white lg:flex lg:flex-col">
+          <Image
+            src="/brand/newraj-logo-master.png"
+            alt="New Raj Interior"
+            width={156}
+            height={156}
+            className="mx-auto h-36 w-36 rounded-full object-contain"
+            priority
+          />
+
+          <nav className="mt-8 space-y-2">
+            {navItems.map(([label, Icon, active]) => (
+              <button
+                className={[
+                  "flex h-11 w-full items-center gap-4 rounded-md px-4 text-left text-sm font-medium transition-colors",
+                  active
+                    ? "bg-newraj-gold text-white shadow-gold"
+                    : "text-white/88 hover:bg-white/8 hover:text-newraj-gold",
+                ].join(" ")}
+                key={label}
+                type="button"
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+                {label}
+                {label === "Notifikasi" ? (
+                  <span className="ml-auto rounded-md bg-newraj-gold px-2 py-0.5 text-xs text-white">8</span>
+                ) : null}
+              </button>
+            ))}
+          </nav>
+
+          <div className="mt-auto rounded-lg border border-white/8 bg-white/[0.04] p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-full bg-[linear-gradient(135deg,#d7d2c5,#777)]" />
+              <div>
+                <p className="font-semibold">Dian</p>
+                <p className="text-xs text-white/68">Project Manager</p>
+              </div>
+              <ChevronRightIcon className="ml-auto h-4 w-4 rotate-90 text-white/70" />
+            </div>
+          </div>
+        </aside>
+
+        <section className="min-w-0 px-4 py-6 sm:px-6 xl:px-8">
+          <header className="flex flex-col gap-5 border-b pb-5 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex items-center gap-6">
+              <h1 className="font-display text-4xl font-bold">Dashboard</h1>
+              <p className="text-sm text-newraj-charcoal">Selamat pagi, Dian</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="relative w-full min-w-0 sm:w-[420px]">
+                <input
+                  className="h-12 w-full rounded-lg border bg-white px-5 pr-12 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  placeholder="Cari project, client, invoice..."
+                />
+                <MagnifyingGlassIcon className="absolute right-4 top-3.5 h-5 w-5" />
+              </div>
+              <button className="relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-muted" type="button">
+                <BellIcon className="h-5 w-5" />
+                <span className="absolute right-1 top-0 rounded-full bg-newraj-gold px-1.5 text-[10px] font-bold text-white">8</span>
+              </button>
+              <button className="hidden h-10 w-10 items-center justify-center rounded-full hover:bg-muted sm:flex" type="button">
+                <EnvelopeIcon className="h-5 w-5" />
+              </button>
+            </div>
+          </header>
+
+          <div className="mt-5 grid gap-5 xl:grid-cols-4">
+            {stats.map((item) => (
+              <StatCard key={item.label} {...item} />
+            ))}
+          </div>
+
+          <div className="mt-5 grid gap-5 xl:grid-cols-[1.45fr_1fr]">
+            <div className="space-y-5">
+              <section className="rounded-lg border bg-white p-6 shadow-sm">
+                <h2 className="font-display text-xl font-semibold">Ringkasan Progress Project</h2>
+                <div className="mt-8 flex h-3 overflow-hidden rounded-full bg-muted">
+                  <div className="bg-[#d99a00]" style={{ width: "39%" }} />
+                  <div className="bg-[#e8743b]" style={{ width: "20%" }} />
+                  <div className="bg-[#6b85c4]" style={{ width: "12%" }} />
+                  <div className="bg-[#27a8a0]" style={{ width: "9%" }} />
+                  <div className="bg-[#65b95a]" style={{ width: "20%" }} />
+                </div>
+                <div className="mt-8 grid gap-4 text-sm text-muted-foreground sm:grid-cols-5">
+                  {[
+                    ["Dalam Proses", "12", "#d99a00"],
+                    ["Dalam Antrian", "5", "#e8743b"],
+                    ["Produksi", "3", "#6b85c4"],
+                    ["Instalasi", "2", "#27a8a0"],
+                    ["Selesai", "7", "#65b95a"],
+                  ].map(([label, value, color]) => (
+                    <div className="flex items-center gap-3" key={label}>
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+                      <span>{label}</span>
+                      <span className="ml-auto font-semibold text-newraj-ink">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="rounded-lg border bg-white p-6 shadow-sm">
+                <SectionHeader title="Project Tahap Saat Ini" />
+                <div className="mt-6 grid gap-4 md:grid-cols-5">
+                  {stages.map((stage) => (
+                    <StageCard key={stage.name} {...stage} />
+                  ))}
+                </div>
+              </section>
+
+              <section className="rounded-lg border bg-white p-6 shadow-sm">
+                <SectionHeader title="Project Aktif" />
+                <div className="mt-5 overflow-hidden rounded-lg border">
+                  <table className="w-full min-w-[820px] border-collapse text-left text-sm">
+                    <thead className="bg-[#faf9f5] text-xs text-newraj-charcoal">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold">Project</th>
+                        <th className="px-4 py-3 font-semibold">Client</th>
+                        <th className="px-4 py-3 font-semibold">Tahap Saat Ini</th>
+                        <th className="px-4 py-3 font-semibold">Progress</th>
+                        <th className="px-4 py-3 font-semibold">Target Selesai</th>
+                        <th className="px-4 py-3 font-semibold">PM</th>
+                        <th className="px-4 py-3" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y bg-white">
+                      {projects.map((project, index) => (
+                        <ProjectRow key={project[0]} index={index} project={project} />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+                  <span>Total 4 project</span>
+                  <div className="flex items-center gap-2">
+                    <Button size="icon" variant="outline"><ChevronLeftIcon className="h-4 w-4" /></Button>
+                    <Button size="icon">1</Button>
+                    <Button size="icon" variant="outline"><ChevronRightIcon className="h-4 w-4" /></Button>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div className="space-y-5">
+              <section className="rounded-lg border bg-white p-6 shadow-sm">
+                <SectionHeader title="Notifikasi Terbaru" />
+                <div className="mt-5 space-y-5">
+                  {notifications.map(([title, body, time, color]) => (
+                    <div className="flex gap-4" key={title}>
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#faf4e6]" style={{ color }}>
+                        <ClipboardDocumentCheckIcon className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold leading-5">{title}</p>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">{body}</p>
+                      </div>
+                      <span className="whitespace-nowrap text-xs text-muted-foreground">{time}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="rounded-lg border bg-white p-6 shadow-sm">
+                <SectionHeader title="Ringkasan Keuangan" />
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg bg-[#101010] p-5 text-white">
+                    <p className="text-sm text-white/80">Total Nilai Project</p>
+                    <p className="mt-3 font-display text-2xl">Rp 1.245.800.000</p>
+                  </div>
+                  {finance.map(([label, value, percent, className]) => (
+                    <div className="rounded-lg border bg-white p-5" key={label}>
+                      <p className="text-sm text-muted-foreground">{label}</p>
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <p className={["font-display text-xl", className].join(" ")}>{value}</p>
+                        {percent ? <span className={className}>{percent}</span> : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 rounded-lg border p-5">
+                  <p className="font-semibold">Breakdown Pembayaran</p>
+                  <div className="mt-5 grid gap-5 sm:grid-cols-[150px_1fr]">
+                    <div className="mx-auto h-32 w-32 rounded-full bg-[conic-gradient(#d99a00_0_36.7%,#6b85c4_36.7%_65%,#65b95a_65%_97.1%,#ef4444_97.1%_100%)] p-5">
+                      <div className="h-full w-full rounded-full bg-white" />
+                    </div>
+                    <div className="space-y-4 text-sm">
+                      {paymentBreakdown.map(([label, percent, value, color]) => (
+                        <div className="grid grid-cols-[1fr_58px_auto] items-center gap-3" key={label}>
+                          <span className="flex items-center gap-3 text-muted-foreground"><i className={["h-3 w-3 rounded-sm", color].join(" ")} />{label}</span>
+                          <span className="font-semibold">{percent}</span>
+                          <span className="text-muted-foreground">{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <h2 className="font-display text-xl font-semibold">{title}</h2>
+      <button className="text-sm font-medium text-[#b87900]" type="button">Lihat Semua</button>
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  dark,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  dark?: boolean;
+}) {
+  return (
+    <section className={["relative overflow-hidden rounded-lg border p-6 shadow-sm", dark ? "bg-[#101010] text-white" : "bg-white"].join(" ")}>
+      <div className="flex items-start justify-between gap-5">
+        <div>
+          <p className="text-sm">{label}</p>
+          <p className="mt-3 font-display text-4xl">{value}</p>
+          <p className={["mt-3 text-sm", dark ? "text-white/78" : "text-muted-foreground"].join(" ")}>{sub}</p>
+        </div>
+        <div className="flex h-16 w-16 items-center justify-center rounded-full border border-newraj-gold/45 bg-newraj-gold/10 text-newraj-gold">
+          <Icon className="h-8 w-8" />
+        </div>
+      </div>
+      <Sparkline dark={dark} />
+    </section>
+  );
+}
+
+function Sparkline({ dark }: { dark?: boolean }) {
+  return (
+    <svg className="ml-auto mt-4 h-10 w-36" viewBox="0 0 144 42" aria-hidden="true">
+      <path d="M2 32 L14 30 L26 34 L39 27 L52 31 L64 20 L77 6 L90 20 L103 27 L116 23 L130 26 L142 14" fill="none" stroke={dark ? "#d4af37" : "#e5a814"} strokeWidth="2" />
+      <path d="M2 32 L14 30 L26 34 L39 27 L52 31 L64 20 L77 6 L90 20 L103 27 L116 23 L130 26 L142 14 L142 42 L2 42 Z" fill={dark ? "rgba(212,175,55,0.10)" : "rgba(212,175,55,0.08)"} />
+    </svg>
+  );
+}
+
+function StageCard({
+  name,
+  count,
+  body,
+  color,
+  icon: Icon,
+}: {
+  name: string;
+  count: number;
+  body: string;
+  color: string;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+}) {
+  return (
+    <div className="rounded-lg border p-4" style={{ backgroundColor: `${color}0D`, borderColor: `${color}40` }}>
+      <p className="text-sm font-medium">{name}</p>
+      <div className="mt-3 flex items-end justify-between">
+        <p className="font-display text-3xl">{count}</p>
+        <Icon className="h-6 w-6" style={{ color }} />
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">On Going</p>
+      <p className="mt-1 text-xs text-muted-foreground">{body}</p>
+    </div>
+  );
+}
+
+function ProjectRow({
+  project,
+  index,
+}: {
+  project: readonly [string, string, string, string, number, string, string];
+  index: number;
+}) {
+  const [name, type, client, stage, progress, date, pm] = project;
+  const badgeVariant = stage === "Produksi" ? "default" : stage === "Instalasi" ? "success" : stage === "Dalam Antrian" ? "warning" : "muted";
+
+  return (
+    <tr className="hover:bg-[#fffaf0]">
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-3">
+          <div className="relative h-14 w-16 overflow-hidden rounded-md bg-[#111]">
+            <Image src="/brand/login-interior-bg.png" alt={name} fill className="object-cover" sizes="64px" style={{ objectPosition: `${35 + index * 12}% center` }} />
+          </div>
+          <div>
+            <p className="font-semibold">{name}</p>
+            <p className="text-xs text-muted-foreground">{type}</p>
+          </div>
+        </div>
+      </td>
+      <td className="px-4 py-3">{client}</td>
+      <td className="px-4 py-3"><Badge variant={badgeVariant}>{stage}</Badge></td>
+      <td className="px-4 py-3">
+        {progress ? (
+          <div className="flex items-center gap-3">
+            <div className="h-2 w-28 rounded-full bg-muted"><div className="h-full rounded-full bg-newraj-gold" style={{ width: `${progress}%` }} /></div>
+            <span>{progress}%</span>
+          </div>
+        ) : "-"}
+      </td>
+      <td className="px-4 py-3">{date}</td>
+      <td className="px-4 py-3">{pm}</td>
+      <td className="px-4 py-3"><Button size="icon" variant="ghost"><EllipsisVerticalIcon className="h-5 w-5" /></Button></td>
+    </tr>
+  );
+}

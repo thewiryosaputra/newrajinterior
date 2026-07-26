@@ -20,8 +20,7 @@ export class VerificationService {
     await this.storeToken({ target, channel: "email", token, userId, minutes: 60 });
 
     const appUrl = this.config.get<string>("APP_URL", "http://localhost:3000");
-    const apiUrl = this.config.get<string>("API_URL", "http://localhost:4000");
-    const verifyUrl = `${apiUrl}/auth/verify-email?token=${token}&email=${encodeURIComponent(target)}`;
+    const verifyUrl = `${appUrl}/verify-email?token=${token}&email=${encodeURIComponent(target)}`;
 
     try {
       await this.sendEmail(

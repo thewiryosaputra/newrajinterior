@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -112,6 +112,8 @@ export default function InvitationRequestPage() {
   const [address, setAddress] = useState("");
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
+  const [shouldSearchAddress, setShouldSearchAddress] = useState(false);
   const [position, setPosition] = useState(defaultPosition);
   const [selectedDate, setSelectedDate] = useState(new Date(2026, 6, 28));
   const [calendarMonth, setCalendarMonth] = useState(new Date(2026, 6, 1));
@@ -119,7 +121,7 @@ export default function InvitationRequestPage() {
   const [budget, setBudget] = useState(budgetRanges[2]);
 
   useEffect(() => {
-    if (address.trim().length < 3) {
+    if (!shouldSearchAddress || address.trim().length < 3) {
       setSuggestions([]);
       return;
     }
@@ -156,12 +158,41 @@ export default function InvitationRequestPage() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [address]);
+  }, [address, shouldSearchAddress]);
 
   function selectAddress(item: AddressSuggestion) {
+    setShouldSearchAddress(false);
     setAddress(item.display_name);
     setPosition({ lat: Number(item.lat), lng: Number(item.lon) });
     setSuggestions([]);
+  }
+
+  async function updatePositionFromMap(nextPosition: { lat: number; lng: number }) {
+    setPosition(nextPosition);
+    setSuggestions([]);
+    setShouldSearchAddress(false);
+    setIsReverseGeocoding(true);
+
+    try {
+      const params = new URLSearchParams({
+        lat: String(nextPosition.lat),
+        lon: String(nextPosition.lng),
+        format: "jsonv2",
+        addressdetails: "1",
+      });
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?${params.toString()}`,
+      );
+      const data = (await response.json()) as Partial<AddressSuggestion>;
+
+      if (data.display_name) {
+        setAddress(data.display_name);
+      }
+    } catch (error) {
+      setAddress(`Pin point: ${nextPosition.lat.toFixed(6)}, ${nextPosition.lng.toFixed(6)}`);
+    } finally {
+      setIsReverseGeocoding(false);
+    }
   }
 
   return (
@@ -310,7 +341,11 @@ export default function InvitationRequestPage() {
                         address={address}
                         isSearching={isSearching}
                         suggestions={suggestions}
-                        onAddressChange={setAddress}
+                        isReverseGeocoding={isReverseGeocoding}
+                        onAddressChange={(value) => {
+                          setShouldSearchAddress(true);
+                          setAddress(value);
+                        }}
                         onSelectAddress={selectAddress}
                       />
 
@@ -327,7 +362,7 @@ export default function InvitationRequestPage() {
                     </div>
 
                     <div className="overflow-hidden rounded-lg border bg-white shadow-sm">
-                      <LocationMap position={position} onChange={setPosition} />
+                      <LocationMap position={position} onChange={updatePositionFromMap} />
                     </div>
                   </div>
                 </div>
@@ -372,7 +407,7 @@ export default function InvitationRequestPage() {
           </div>
 
           <p className="relative z-10 pb-4 text-center text-sm text-muted-foreground">
-            © 2026 New Raj Interior. All rights reserved.
+            ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© 2026 New Raj Interior. All rights reserved.
           </p>
         </section>
       </div>
@@ -408,12 +443,14 @@ function AddressAutocomplete({
   address,
   isSearching,
   suggestions,
+  isReverseGeocoding,
   onAddressChange,
   onSelectAddress,
 }: {
   address: string;
   isSearching: boolean;
   suggestions: AddressSuggestion[];
+  isReverseGeocoding: boolean;
   onAddressChange: (value: string) => void;
   onSelectAddress: (value: AddressSuggestion) => void;
 }) {
@@ -432,7 +469,7 @@ function AddressAutocomplete({
           onChange={(event) => onAddressChange(event.target.value)}
         />
         <span className="absolute right-4 top-3 text-xs font-medium text-muted-foreground">
-          {isSearching ? "Mencari..." : "OSM"}
+          {isReverseGeocoding ? "Update..." : isSearching ? "Mencari..." : "OSM"}
         </span>
       </div>
 

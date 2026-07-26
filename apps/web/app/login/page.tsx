@@ -52,8 +52,6 @@ export default function LoginPage() {
           />
           <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,5,4,0.92),rgba(5,5,4,0.52)),linear-gradient(180deg,rgba(5,5,4,0.18),rgba(5,5,4,0.88))]" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_28%_28%,rgba(212,175,55,0.26),transparent_22rem)]" />
-          <div className="absolute left-24 top-24 h-72 w-72 rounded-full border border-newraj-gold/20" />
-          <div className="absolute bottom-28 right-8 h-80 w-52 rounded-t-full border border-white/10 bg-white/[0.03]" />
           <div className="relative z-10 flex min-h-screen flex-col justify-between px-16 py-16">
             <div className="mx-auto text-center">
               <Image

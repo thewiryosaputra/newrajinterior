@@ -50,6 +50,22 @@ export class VerificationService {
     }
   }
 
+  async sendInvitationLink(input: { email: string; phone: string; customerName: string; link: string }) {
+    const text = `Halo ${input.customerName}, Anda diundang untuk mengisi request invitation New Raj Interior. Buka link berikut: ${input.link}\n\nLink berlaku 7 hari dan hanya bisa digunakan satu kali.`;
+    const html = `<p>Halo ${input.customerName},</p><p>Anda diundang untuk mengisi request invitation New Raj Interior.</p><p><a href="${input.link}">Isi Request Invitation</a></p><p>Link berlaku 7 hari dan hanya bisa digunakan satu kali.</p>`;
+
+    try {
+      await this.sendEmail(input.email, "Invitation request New Raj Interior", text, html);
+    } catch (error) {
+      this.logger.warn(`Email invitation untuk ${input.email} gagal dikirim: ${getErrorMessage(error)}`);
+    }
+
+    try {
+      await this.sendWhatsapp(input.phone, text);
+    } catch (error) {
+      this.logger.warn(`WhatsApp invitation untuk ${input.phone} gagal dikirim: ${getErrorMessage(error)}`);
+    }
+  }
   async sendWhatsappOtp(target: string, userId?: string) {
     const otp = String(randomInt(100000, 999999));
     await this.storeToken({ target: normalizePhone(target), channel: "whatsapp", token: otp, userId, minutes: 10 });

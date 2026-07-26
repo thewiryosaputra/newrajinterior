@@ -1,5 +1,18 @@
 import { IsDateString, IsEmail, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
 
+export class CreateInvitationLinkDto {
+  @IsString()
+  @IsNotEmpty()
+  customerName!: string;
+
+  @IsEmail()
+  email!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  phone!: string;
+}
+
 export class CreateInvitationRequestDto {
   @IsString()
   @IsNotEmpty()
@@ -36,6 +49,10 @@ export class CreateInvitationRequestDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  token!: string;
 }
 
 export class VerifyInvitationWhatsappDto {

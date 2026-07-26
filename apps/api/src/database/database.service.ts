@@ -86,6 +86,26 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     `);
   }
 
+    await this.query(`
+      CREATE TABLE IF NOT EXISTS invitation_links (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        customer_name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        token_hash TEXT NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        used_at TIMESTAMPTZ,
+        invitation_request_id UUID REFERENCES invitation_requests(id) ON DELETE SET NULL,
+        created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `);
+
+    await this.query(`
+      CREATE INDEX IF NOT EXISTS idx_invitation_links_lookup
+        ON invitation_links (token_hash, expires_at)
+        WHERE used_at IS NULL
+    `);
   private async seedAdminUser() {
     const password = this.config.get<string>("ADMIN_PASSWORD", "Cl@55hoster123");
     const passwordHash = await bcrypt.hash(password, 12);

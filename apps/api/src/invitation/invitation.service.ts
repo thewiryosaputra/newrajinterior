@@ -4,7 +4,7 @@ import * as bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { DatabaseService } from "../database/database.service";
 import { hashToken, normalizePhone, VerificationService } from "../verification/verification.service";
-import { CreateInvitationRequestDto, VerifyInvitationWhatsappDto } from "./invitation.dto";
+import { CreateInvitationLinkDto, CreateInvitationRequestDto, VerifyInvitationWhatsappDto } from "./invitation.dto";
 
 @Injectable()
 export class InvitationService {
@@ -14,9 +14,41 @@ export class InvitationService {
     private readonly jwt: JwtService,
   ) {}
 
+
+  async createInvitationLink(dto: CreateInvitationLinkDto, authHeader?: string) {
+    const admin = await this.requireAdmin(authHeader);
+    const email = dto.email.trim().toLowerCase();
+    const phone = normalizePhone(dto.phone);
+    const token = randomUUID().replace(/-/g, "");
+    const appUrl = process.env.APP_URL ?? "https://crm.newrajinterior.xyz";
+    const link = `${appUrl}/invitation/request?token=${token}`;
+
+    const result = await this.db.query(
+      `INSERT INTO invitation_links (customer_name, email, phone, token_hash, expires_at, created_by)
+       VALUES ($1, $2, $3, $4, now() + interval '7 days', $5)
+       RETURNING id, customer_name, email, phone, expires_at, created_at`,
+      [dto.customerName.trim(), email, phone, hashToken(token), admin.sub],
+    );
+
+    await this.verification.sendInvitationLink({ customerName: dto.customerName.trim(), email, phone, link });
+
+    return {
+      invitation: {
+        id: result.rows[0].id,
+        customerName: result.rows[0].customer_name,
+        email: result.rows[0].email,
+        phone: result.rows[0].phone,
+        expiresAt: result.rows[0].expires_at,
+        createdAt: result.rows[0].created_at,
+      },
+      link,
+      message: "Link request invitation sudah dikirim lewat email dan WhatsApp.",
+    };
+  }
   async createRequest(dto: CreateInvitationRequestDto) {
     const email = dto.email.trim().toLowerCase();
     const phone = normalizePhone(dto.phone);
+    const invitationLink = await this.consumeInvitationLink(dto.token, email, phone);
 
     const result = await this.db.query(
       `INSERT INTO invitation_requests (
@@ -26,7 +58,7 @@ export class InvitationService {
       RETURNING id, customer_name, phone, email, survey_date, project_type, estimated_budget,
         project_address, latitude, longitude, notes, status, email_verified_at, whatsapp_verified_at, approved_at, user_id, created_at`,
       [
-        dto.customerName.trim(),
+        invitationLink.customer_name,
         phone,
         email,
         dto.surveyDate,
@@ -38,6 +70,8 @@ export class InvitationService {
         dto.notes ?? null,
       ],
     );
+
+    await this.db.query("UPDATE invitation_links SET used_at = now(), invitation_request_id = $1 WHERE id = $2", [result.rows[0].id, invitationLink.id]);
 
     await this.verification.sendEmailVerification(email);
     await this.verification.sendWhatsappOtp(phone);
@@ -136,6 +170,22 @@ export class InvitationService {
     return this.verification.verifyWhatsapp(dto.phone, dto.otp);
   }
 
+  private async consumeInvitationLink(token: string, email: string, phone: string) {
+    const result = await this.db.query<{ id: string; customer_name: string; email: string; phone: string }>(
+      `SELECT id, customer_name, email, phone
+       FROM invitation_links
+       WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [hashToken(token)],
+    );
+    const row = result.rows[0];
+    if (!row) throw new BadRequestException("Link request invitation tidak valid, sudah digunakan, atau sudah kedaluwarsa.");
+    if (row.email !== email || row.phone !== phone) {
+      throw new BadRequestException("Email atau nomor WhatsApp tidak sesuai dengan invitation link.");
+    }
+    return row;
+  }
   private async requireAdmin(authHeader?: string) {
     const token = authHeader?.replace(/^Bearer\s+/i, "");
     if (!token) throw new UnauthorizedException("Admin login diperlukan.");

@@ -1,10 +1,15 @@
 import { Body, Controller, Get, Headers, Param, Post, Query } from "@nestjs/common";
-import { CreateInvitationRequestDto, VerifyInvitationWhatsappDto } from "./invitation.dto";
+import { CreateInvitationLinkDto, CreateInvitationRequestDto, VerifyInvitationWhatsappDto } from "./invitation.dto";
 import { InvitationService } from "./invitation.service";
 
 @Controller("invitation-requests")
 export class InvitationController {
   constructor(private readonly invitation: InvitationService) {}
+
+  @Post("invite")
+  createInvitationLink(@Body() dto: CreateInvitationLinkDto, @Headers("authorization") authorization?: string) {
+    return this.invitation.createInvitationLink(dto, authorization);
+  }
 
   @Post()
   createRequest(@Body() dto: CreateInvitationRequestDto) {

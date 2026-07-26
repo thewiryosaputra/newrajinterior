@@ -1,8 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import {
   ArrowRightIcon,
   BriefcaseIcon,
@@ -110,6 +111,16 @@ type AddressSuggestion = {
 };
 
 export default function InvitationRequestPage() {
+  return (
+    <Suspense fallback={<main className="flex min-h-screen items-center justify-center bg-[#fbfaf7] text-newraj-ink">Memuat invitation...</main>}>
+      <InvitationRequestContent />
+    </Suspense>
+  );
+}
+
+function InvitationRequestContent() {
+  const searchParams = useSearchParams();
+  const invitationToken = searchParams.get("token") ?? "";
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -207,6 +218,12 @@ export default function InvitationRequestPage() {
     event.preventDefault();
     setSubmitMessage(null);
 
+    if (!invitationToken) {
+      setSubmitStatus("error");
+      setSubmitMessage("Link invitation tidak valid atau tidak ditemukan. Silakan gunakan link dari email atau WhatsApp.");
+      return;
+    }
+
     if (!customerName.trim() || !phone.trim() || !email.trim() || !address.trim()) {
       setSubmitStatus("error");
       setSubmitMessage("Nama customer, nomor telepon, email, dan alamat project wajib diisi.");
@@ -229,6 +246,7 @@ export default function InvitationRequestPage() {
           latitude: Number(position.lat.toFixed(7)),
           longitude: Number(position.lng.toFixed(7)),
           notes: notes.trim() || undefined,
+          token: invitationToken,
         }),
       });
       const data = (await response.json().catch(() => ({}))) as { message?: string | string[] };
@@ -333,6 +351,12 @@ export default function InvitationRequestPage() {
                   invitation untuk customer.
                 </p>
               </div>
+
+              {!invitationToken ? (
+                <div className="mt-10 rounded-lg border border-red-200 bg-red-50 p-5 text-sm font-medium leading-7 text-red-700">
+                  Link invitation tidak valid atau belum tersedia. Halaman ini hanya bisa dibuka dari link yang dikirim oleh admin melalui email atau WhatsApp.
+                </div>
+              ) : null}
 
               <form className="mt-10 space-y-6" onSubmit={handleSubmit}>
                 <div className="grid gap-5 md:grid-cols-2">
@@ -467,7 +491,7 @@ export default function InvitationRequestPage() {
                 ) : null}
 
                 <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button className="h-14 flex-1 text-base uppercase" disabled={isSubmitting} type="submit">
+                  <Button className="h-14 flex-1 text-base uppercase" disabled={isSubmitting || !invitationToken} type="submit">
                     {isSubmitting ? "Mengirim..." : "Request Invitation"}
                     <ArrowRightIcon className="h-5 w-5" />
                   </Button>

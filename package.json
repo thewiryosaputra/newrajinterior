@@ -1,0 +1,10 @@
+{
+    "name":  "newrajinterior",
+    "private":  true,
+    "scripts":  {
+                    "dev":  "pnpm --filter @newraj/web dev",
+                    "build":  "pnpm --filter @newraj/web build",
+                    "lint":  "pnpm --filter @newraj/web lint"
+                },
+    "packageManager":  "pnpm@10.14.0"
+}

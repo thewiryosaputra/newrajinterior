@@ -2,8 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   ArrowRightIcon,
   BriefcaseIcon,
@@ -24,6 +23,8 @@ import {
 } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+const API_BASE_URL = "https://api.newrajinterior.xyz/api";
 
 const LocationMap = dynamic(
   () => import("@/components/invitation-location-map"),
@@ -109,6 +110,10 @@ type AddressSuggestion = {
 };
 
 export default function InvitationRequestPage() {
+  const [customerName, setCustomerName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [notes, setNotes] = useState("");
   const [address, setAddress] = useState("");
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -119,6 +124,9 @@ export default function InvitationRequestPage() {
   const [calendarMonth, setCalendarMonth] = useState(new Date(2026, 6, 1));
   const [projectType, setProjectType] = useState(projectTypes[0]);
   const [budget, setBudget] = useState(budgetRanges[2]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+  const [submitStatus, setSubmitStatus] = useState<"error" | "success">("success");
 
   useEffect(() => {
     if (!shouldSearchAddress || address.trim().length < 3) {
@@ -192,6 +200,55 @@ export default function InvitationRequestPage() {
       setAddress(`Pin point: ${nextPosition.lat.toFixed(6)}, ${nextPosition.lng.toFixed(6)}`);
     } finally {
       setIsReverseGeocoding(false);
+    }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitMessage(null);
+
+    if (!customerName.trim() || !phone.trim() || !email.trim() || !address.trim()) {
+      setSubmitStatus("error");
+      setSubmitMessage("Nama customer, nomor telepon, email, dan alamat project wajib diisi.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/invitation-requests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerName: customerName.trim(),
+          phone: phone.trim(),
+          email: email.trim(),
+          surveyDate: toApiDate(selectedDate),
+          projectType,
+          estimatedBudget: budget,
+          projectAddress: address.trim(),
+          latitude: Number(position.lat.toFixed(7)),
+          longitude: Number(position.lng.toFixed(7)),
+          notes: notes.trim() || undefined,
+        }),
+      });
+      const data = (await response.json().catch(() => ({}))) as { message?: string | string[] };
+
+      if (!response.ok) {
+        setSubmitStatus("error");
+        setSubmitMessage(formatApiMessage(data.message) || "Request invitation gagal dikirim.");
+        return;
+      }
+
+      setSubmitStatus("success");
+      setSubmitMessage(
+        formatApiMessage(data.message) ||
+          "Request invitation berhasil disimpan. Email verifikasi dan OTP WhatsApp sudah dikirim ke customer.",
+      );
+    } catch (error) {
+      setSubmitStatus("error");
+      setSubmitMessage("Tidak bisa terhubung ke server API. Coba lagi sebentar.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -277,25 +334,32 @@ export default function InvitationRequestPage() {
                 </p>
               </div>
 
-              <form className="mt-10 space-y-6">
+              <form className="mt-10 space-y-6" onSubmit={handleSubmit}>
                 <div className="grid gap-5 md:grid-cols-2">
                   <Field
                     id="customer-name"
                     label="Nama Customer"
                     placeholder="Contoh: Dian"
                     icon={UserIcon}
+                    value={customerName}
+                    onChange={setCustomerName}
                   />
                   <Field
                     id="phone"
                     label="Nomor Telepon"
                     placeholder="Contoh: 081238979785"
                     icon={PhoneIcon}
+                    value={phone}
+                    onChange={setPhone}
                   />
                   <Field
                     id="email"
                     label="Email"
                     placeholder="customer@email.com"
                     icon={EnvelopeIcon}
+                    type="email"
+                    value={email}
+                    onChange={setEmail}
                   />
                   <DatePicker
                     value={selectedDate}
@@ -375,6 +439,8 @@ export default function InvitationRequestPage() {
                     id="notes"
                     className="mt-3 min-h-28 w-full resize-none rounded-md border border-input bg-white px-4 py-3 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
                     placeholder="Tulis kebutuhan awal customer, ukuran area, preferensi material, atau request khusus."
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
                   />
                 </div>
 
@@ -387,12 +453,23 @@ export default function InvitationRequestPage() {
                   </p>
                 </div>
 
+                {submitMessage ? (
+                  <div
+                    className={[
+                      "rounded-lg border px-5 py-4 text-sm leading-7",
+                      submitStatus === "success"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : "border-red-200 bg-red-50 text-red-700",
+                    ].join(" ")}
+                  >
+                    {submitMessage}
+                  </div>
+                ) : null}
+
                 <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button className="h-14 flex-1 text-base uppercase" asChild>
-                    <Link href="/invitation">
-                      Generate Invitation
-                      <ArrowRightIcon className="h-5 w-5" />
-                    </Link>
+                  <Button className="h-14 flex-1 text-base uppercase" disabled={isSubmitting} type="submit">
+                    {isSubmitting ? "Mengirim..." : "Generate Invitation"}
+                    <ArrowRightIcon className="h-5 w-5" />
                   </Button>
                   <Button
                     className="h-14 flex-1 bg-white text-foreground shadow-sm hover:bg-muted"
@@ -407,7 +484,7 @@ export default function InvitationRequestPage() {
           </div>
 
           <p className="relative z-10 pb-4 text-center text-sm text-muted-foreground">
-            ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© 2026 New Raj Interior. All rights reserved.
+            Ã‚&copy; 2026 New Raj Interior. All rights reserved.
           </p>
         </section>
       </div>
@@ -420,11 +497,17 @@ function Field({
   label,
   placeholder,
   icon: Icon,
+  type = "text",
+  value,
+  onChange,
 }: {
   id: string;
   label: string;
   placeholder: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  type?: string;
+  value: string;
+  onChange: (value: string) => void;
 }) {
   return (
     <div>
@@ -433,7 +516,14 @@ function Field({
       </label>
       <div className="relative mt-3">
         <Icon className="absolute left-4 top-3 h-5 w-5 text-muted-foreground" />
-        <Input id={id} className="h-12 pl-12" placeholder={placeholder} />
+        <Input
+          id={id}
+          className="h-12 pl-12"
+          placeholder={placeholder}
+          type={type}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
       </div>
     </div>
   );
@@ -685,4 +775,13 @@ function getCalendarDays(month: Date) {
 
 function toDateKey(date: Date) {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function toApiDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function formatApiMessage(message: string | string[] | undefined) {
+  if (Array.isArray(message)) return message.join(" ");
+  return message;
 }

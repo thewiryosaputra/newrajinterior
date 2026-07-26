@@ -4,7 +4,10 @@
     "scripts":  {
                     "dev":  "pnpm --filter @newraj/web dev",
                     "build":  "pnpm --filter @newraj/web build",
-                    "lint":  "pnpm --filter @newraj/web lint"
+                    "lint":  "pnpm --filter @newraj/web lint",
+                    "dev:api":  "pnpm --filter @newraj/api dev",
+                    "build:api":  "pnpm --filter @newraj/api build",
+                    "start:api":  "pnpm --filter @newraj/api start"
                 },
     "packageManager":  "pnpm@10.14.0"
 }

@@ -1,4 +1,7 @@
+"use client";
+
 import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
 import {
   BellIcon,
   BriefcaseIcon,
@@ -26,6 +29,25 @@ import {
 } from "@heroicons/react/24/outline";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+
+const API_BASE_URL = "https://api.newrajinterior.xyz/api";
+
+type InvitationRequest = {
+  id: string;
+  customerName: string;
+  phone: string;
+  email: string;
+  surveyDate: string;
+  projectType: string;
+  estimatedBudget: string;
+  projectAddress: string;
+  latitude: number;
+  longitude: number;
+  status: string;
+  emailVerified: boolean;
+  whatsappVerified: boolean;
+  createdAt: string;
+};
 
 const navItems = [
   ["Dashboard", HomeIcon, true],
@@ -87,6 +109,44 @@ const paymentBreakdown = [
 ] as const;
 
 export default function DashboardPage() {
+  const [invitations, setInvitations] = useState<InvitationRequest[]>([]);
+  const [isLoadingInvitations, setIsLoadingInvitations] = useState(true);
+  const [invitationError, setInvitationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadInvitations() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/invitation-requests`, { cache: "no-store" });
+        const payload = (await response.json().catch(() => ({}))) as { data?: InvitationRequest[]; message?: string | string[] };
+
+        if (!response.ok) {
+          setInvitationError(formatApiMessage(payload.message) || "Data invitation belum bisa dimuat.");
+          return;
+        }
+
+        setInvitations(payload.data || []);
+      } catch (error) {
+        setInvitationError("Tidak bisa terhubung ke API invitation.");
+      } finally {
+        setIsLoadingInvitations(false);
+      }
+    }
+
+    void loadInvitations();
+  }, []);
+
+  const verifiedCount = useMemo(
+    () => invitations.filter((item) => item.emailVerified && item.whatsappVerified).length,
+    [invitations],
+  );
+  const pendingCount = Math.max(invitations.length - verifiedCount, 0);
+  const liveStats = [
+    { label: "Invitation Request", value: String(invitations.length), sub: "Data dari backend", icon: ClipboardDocumentCheckIcon, dark: true },
+    { label: "Menunggu Verifikasi", value: String(pendingCount), sub: "Email/WhatsApp pending", icon: ClockIcon },
+    { label: "Terverifikasi", value: String(verifiedCount), sub: "Siap dibuat project", icon: CheckBadgeIcon },
+    { label: "Project Aktif", value: "12", sub: "Data dummy sementara", icon: BriefcaseIcon },
+  ];
+
   return (
     <main className="min-h-screen bg-[#fbfaf7] text-newraj-ink">
       <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
@@ -158,7 +218,7 @@ export default function DashboardPage() {
           </header>
 
           <div className="mt-5 grid gap-5 xl:grid-cols-4">
-            {stats.map((item) => (
+            {liveStats.map((item) => (
               <StatCard key={item.label} {...item} />
             ))}
           </div>
@@ -235,20 +295,32 @@ export default function DashboardPage() {
 
             <div className="space-y-5">
               <section className="rounded-lg border bg-white p-6 shadow-sm">
-                <SectionHeader title="Notifikasi Terbaru" />
-                <div className="mt-5 space-y-5">
-                  {notifications.map(([title, body, time, color]) => (
-                    <div className="flex gap-4" key={title}>
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#faf4e6]" style={{ color }}>
-                        <ClipboardDocumentCheckIcon className="h-5 w-5" />
+                <SectionHeader title="Invitation Request Terbaru" />
+                <div className="mt-5 space-y-4">
+                  {isLoadingInvitations ? (
+                    <p className="text-sm text-muted-foreground">Memuat data invitation...</p>
+                  ) : invitationError ? (
+                    <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{invitationError}</p>
+                  ) : invitations.length === 0 ? (
+                    <p className="rounded-lg border bg-[#faf9f5] p-4 text-sm text-muted-foreground">Belum ada invitation request masuk.</p>
+                  ) : (
+                    invitations.slice(0, 5).map((item) => (
+                      <div className="rounded-lg border bg-[#fffdf8] p-4" key={item.id}>
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <p className="font-semibold leading-5">{item.customerName}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{item.projectType} â€¢ {item.estimatedBudget}</p>
+                          </div>
+                          <InvitationStatusBadge item={item} />
+                        </div>
+                        <p className="mt-3 line-clamp-2 text-sm leading-6 text-newraj-charcoal">{item.projectAddress}</p>
+                        <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                          <span>Survey: {formatDate(item.surveyDate)}</span>
+                          <span>WA: {item.phone}</span>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold leading-5">{title}</p>
-                        <p className="mt-1 text-xs leading-5 text-muted-foreground">{body}</p>
-                      </div>
-                      <span className="whitespace-nowrap text-xs text-muted-foreground">{time}</span>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </section>
 
@@ -408,4 +480,30 @@ function ProjectRow({
       <td className="px-4 py-3"><Button size="icon" variant="ghost"><EllipsisVerticalIcon className="h-5 w-5" /></Button></td>
     </tr>
   );
+}
+
+function InvitationStatusBadge({ item }: { item: InvitationRequest }) {
+  if (item.emailVerified && item.whatsappVerified) {
+    return <Badge variant="success">Verified</Badge>;
+  }
+
+  if (item.emailVerified || item.whatsappVerified) {
+    return <Badge variant="warning">Partial</Badge>;
+  }
+
+  return <Badge variant="muted">Pending</Badge>;
+}
+
+function formatDate(value: string) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+function formatApiMessage(message: string | string[] | undefined) {
+  if (Array.isArray(message)) return message.join(" ");
+  return message;
 }

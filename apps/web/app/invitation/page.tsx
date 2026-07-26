@@ -197,9 +197,11 @@ export default function InvitationPage() {
                 </div>
               </div>
 
-              <Button className="mt-6 h-14 w-full text-base uppercase" type="button">
-                <UserPlusIcon className="h-6 w-6" />
-                Create Account
+              <Button className="mt-6 h-14 w-full text-base uppercase" asChild>
+                <a href="/login">
+                  <UserPlusIcon className="h-6 w-6" />
+                  Create Account
+                </a>
               </Button>
 
               <div className="my-5 flex items-center gap-4 text-sm text-muted-foreground">
@@ -208,7 +210,7 @@ export default function InvitationPage() {
                 <div className="h-px flex-1 bg-border" />
               </div>
 
-              <button className="flex h-14 w-full items-center justify-between rounded-lg border bg-white px-5 text-sm font-medium shadow-sm">
+              <a href="/login" className="flex h-14 w-full items-center justify-between rounded-lg border bg-white px-5 text-sm font-medium shadow-sm">
                 <span className="flex items-center gap-3">
                   <UserIcon className="h-6 w-6 text-muted-foreground" />
                   I already have an account
@@ -216,7 +218,7 @@ export default function InvitationPage() {
                 <span className="flex items-center gap-2 text-[#b87900]">
                   Log in <ArrowRightIcon className="h-4 w-4" />
                 </span>
-              </button>
+              </a>
             </div>
           </div>
 

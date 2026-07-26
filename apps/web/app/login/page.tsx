@@ -155,7 +155,7 @@ export default function LoginPage() {
                   </label>
                   <a
                     className="font-medium text-[#b87900] underline underline-offset-4"
-                    href="#"
+                    href="/forgot-password"
                   >
                     Lupa Password?
                   </a>
@@ -199,7 +199,7 @@ export default function LoginPage() {
                   Belum punya akun?{" "}
                   <a
                     className="font-medium text-[#b87900] underline underline-offset-4"
-                    href="#"
+                    href="/invitation/request"
                   >
                     Daftar sekarang
                   </a>

@@ -84,7 +84,6 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         ON password_setup_tokens (token_hash, expires_at)
         WHERE consumed_at IS NULL
     `);
-  }
 
     await this.query(`
       CREATE TABLE IF NOT EXISTS invitation_links (
@@ -106,6 +105,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         ON invitation_links (token_hash, expires_at)
         WHERE used_at IS NULL
     `);
+  }
+
   private async seedAdminUser() {
     const password = this.config.get<string>("ADMIN_PASSWORD", "Cl@55hoster123");
     const passwordHash = await bcrypt.hash(password, 12);

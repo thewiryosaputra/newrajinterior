@@ -119,7 +119,7 @@ export class VerificationService {
   private async sendWhatsapp(phone: string, text: string) {
     const baseUrl = this.config.get<string>("WAHA_BASE_URL");
     const apiKey = this.config.get<string>("WAHA_API_KEY");
-    const session = this.config.get<string>("WAHA_SESSION", "newraj-interior");
+    const session = this.config.get<string>("WAHA_SESSION", "newraj");
 
     if (!baseUrl || !apiKey) {
       this.logger.warn(`WAHA belum dikonfigurasi. OTP WhatsApp untuk ${phone} tidak dikirim.`);

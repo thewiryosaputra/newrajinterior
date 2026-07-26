@@ -23,18 +23,26 @@ export class VerificationService {
     const apiUrl = this.config.get<string>("API_URL", "http://localhost:4000");
     const verifyUrl = `${apiUrl}/auth/verify-email?token=${token}&email=${encodeURIComponent(target)}`;
 
-    await this.sendEmail(
-      target,
-      "Verifikasi email New Raj Interior",
-      `Klik link berikut untuk verifikasi email New Raj Interior: ${verifyUrl}\n\nLink berlaku 60 menit.`,
-      `<p>Klik tombol berikut untuk verifikasi email New Raj Interior.</p><p><a href="${verifyUrl}">Verifikasi Email</a></p><p>Link berlaku 60 menit.</p><p>Website: ${appUrl}</p>`,
-    );
+    try {
+      await this.sendEmail(
+        target,
+        "Verifikasi email New Raj Interior",
+        `Klik link berikut untuk verifikasi email New Raj Interior: ${verifyUrl}\n\nLink berlaku 60 menit.`,
+        `<p>Klik tombol berikut untuk verifikasi email New Raj Interior.</p><p><a href="${verifyUrl}">Verifikasi Email</a></p><p>Link berlaku 60 menit.</p><p>Website: ${appUrl}</p>`,
+      );
+    } catch (error) {
+      this.logger.warn(`Email verifikasi untuk ${target} gagal dikirim: ${getErrorMessage(error)}`);
+    }
   }
 
   async sendWhatsappOtp(target: string, userId?: string) {
     const otp = String(randomInt(100000, 999999));
     await this.storeToken({ target: normalizePhone(target), channel: "whatsapp", token: otp, userId, minutes: 10 });
-    await this.sendWhatsapp(target, `Kode verifikasi New Raj Interior Anda: ${otp}. Kode berlaku 10 menit.`);
+    try {
+      await this.sendWhatsapp(target, `Kode verifikasi New Raj Interior Anda: ${otp}. Kode berlaku 10 menit.`);
+    } catch (error) {
+      this.logger.warn(`OTP WhatsApp untuk ${target} gagal dikirim: ${getErrorMessage(error)}`);
+    }
   }
 
   async verifyEmail(email: string, token: string) {
@@ -97,6 +105,7 @@ export class VerificationService {
       port,
       secure: port === 465,
       auth: { user, pass },
+      tls: { rejectUnauthorized: false },
     });
 
     await transporter.sendMail({
@@ -143,4 +152,7 @@ export function normalizePhone(value: string) {
   if (digits.startsWith("0")) return `62${digits.slice(1)}`;
   if (digits.startsWith("62")) return digits;
   return digits;
+}
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }

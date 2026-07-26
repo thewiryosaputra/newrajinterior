@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, Suspense, useState } from "react";
 import { CheckCircleIcon, LockClosedIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,14 @@ import { Input } from "@/components/ui/input";
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "https://api.newrajinterior.xyz/api";
 
 export default function SetupPasswordPage() {
+  return (
+    <Suspense fallback={<main className="flex min-h-screen items-center justify-center bg-[#fbfaf7] text-newraj-ink">Memuat...</main>}>
+      <SetupPasswordContent />
+    </Suspense>
+  );
+}
+
+function SetupPasswordContent() {
   const router = useRouter();
   const params = useSearchParams();
   const token = params.get("token") ?? "";

@@ -41,7 +41,7 @@ const LocationMap = dynamic(
 const benefits = [
   {
     title: "Project Invitation",
-    body: "Buat invitation customer dengan data project yang lengkap.",
+    body: "Request invitation customer dengan data project yang lengkap.",
     icon: ClipboardDocumentCheckIcon,
   },
   {
@@ -468,7 +468,7 @@ export default function InvitationRequestPage() {
 
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <Button className="h-14 flex-1 text-base uppercase" disabled={isSubmitting} type="submit">
-                    {isSubmitting ? "Mengirim..." : "Generate Invitation"}
+                    {isSubmitting ? "Mengirim..." : "Request Invitation"}
                     <ArrowRightIcon className="h-5 w-5" />
                   </Button>
                   <Button

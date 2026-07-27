@@ -1,8 +1,10 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowRightOnRectangleIcon,
   BellIcon,
   BriefcaseIcon,
   CalendarDaysIcon,
@@ -110,11 +112,24 @@ const paymentBreakdown = [
 ] as const;
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const [authChecked, setAuthChecked] = useState(false);
   const [invitations, setInvitations] = useState<InvitationRequest[]>([]);
   const [isLoadingInvitations, setIsLoadingInvitations] = useState(true);
   const [invitationError, setInvitationError] = useState<string | null>(null);
 
   useEffect(() => {
+    const token = window.localStorage.getItem("newraj_access_token");
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+    setAuthChecked(true);
+  }, [router]);
+
+  useEffect(() => {
+    if (!authChecked) return;
+
     async function loadInvitations() {
       try {
         const response = await fetch(`${API_BASE_URL}/invitation-requests`, { cache: "no-store" });
@@ -134,7 +149,7 @@ export default function DashboardPage() {
     }
 
     void loadInvitations();
-  }, []);
+  }, [authChecked]);
 
   const verifiedCount = useMemo(
     () => invitations.filter((item) => item.emailVerified && item.whatsappVerified).length,
@@ -147,6 +162,20 @@ export default function DashboardPage() {
     { label: "Terverifikasi", value: String(verifiedCount), sub: "Siap dibuat project", icon: CheckBadgeIcon },
     { label: "Project Aktif", value: "12", sub: "Data dummy sementara", icon: BriefcaseIcon },
   ];
+
+  function handleLogout() {
+    window.localStorage.removeItem("newraj_access_token");
+    window.localStorage.removeItem("newraj_user_role");
+    router.replace("/login");
+  }
+
+  if (!authChecked) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#fbfaf7] text-newraj-ink">
+        <div className="rounded-lg border bg-white px-6 py-4 text-sm font-medium shadow-sm">Memeriksa sesi login...</div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#fbfaf7] text-newraj-ink">
@@ -189,7 +218,9 @@ export default function DashboardPage() {
                 <p className="font-semibold">Dian</p>
                 <p className="text-xs text-white/68">Project Manager</p>
               </div>
-              <ChevronRightIcon className="ml-auto h-4 w-4 rotate-90 text-white/70" />
+              <button className="ml-auto flex h-9 w-9 items-center justify-center rounded-md text-white/70 hover:bg-white/10 hover:text-newraj-gold" onClick={handleLogout} type="button" aria-label="Logout">
+                <ArrowRightOnRectangleIcon className="h-5 w-5" />
+              </button>
             </div>
           </div>
         </aside>
@@ -215,6 +246,10 @@ export default function DashboardPage() {
               <button className="hidden h-10 w-10 items-center justify-center rounded-full hover:bg-muted sm:flex" type="button">
                 <EnvelopeIcon className="h-5 w-5" />
               </button>
+              <Button className="h-10 gap-2 bg-white text-foreground shadow-sm hover:bg-muted" type="button" variant="outline" onClick={handleLogout}>
+                <ArrowRightOnRectangleIcon className="h-5 w-5" />
+                Logout
+              </Button>
             </div>
           </header>
 

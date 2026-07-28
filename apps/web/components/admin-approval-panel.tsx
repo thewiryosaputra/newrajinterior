@@ -42,7 +42,8 @@ export function AdminApprovalPanel() {
     setIsCreating(true);
     setError(null);
     setMessage(null);
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       const token = localStorage.getItem("newraj_access_token");
       const response = await fetch(`${apiBaseUrl}/invitation-requests/invite`, {
@@ -60,7 +61,7 @@ export function AdminApprovalPanel() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.message ?? "Gagal membuat invitation link.");
       setMessage("Invitation link sudah dikirim ke email dan WhatsApp customer.");
-      event.currentTarget.reset();
+      formElement.reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal membuat invitation link.");
     } finally {

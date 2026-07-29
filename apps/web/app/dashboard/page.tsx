@@ -51,7 +51,7 @@ type InvitationRequest = {
   createdAt: string;
 };
 
-const navItems = [
+const adminNavItems = [
   ["Dashboard", HomeIcon, true],
   ["Invitation", EnvelopeIcon, false],
   ["Project", BriefcaseIcon, false],
@@ -66,6 +66,14 @@ const navItems = [
   ["Client", UsersIcon, false],
   ["Tim", UserGroupIcon, false],
   ["Pengaturan", Cog6ToothIcon, false],
+] as const;
+
+const customerNavItems = [
+  ["Project", BriefcaseIcon, false],
+  ["BOQ", ClipboardDocumentListIcon, false],
+  ["Kontrak", DocumentTextIcon, false],
+  ["Invoice", CreditCardIcon, false],
+  ["Notifikasi", BellIcon, false],
 ] as const;
 
 const stats = [
@@ -114,6 +122,7 @@ const paymentBreakdown = [
 export default function DashboardPage() {
   const router = useRouter();
   const [authChecked, setAuthChecked] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [invitations, setInvitations] = useState<InvitationRequest[]>([]);
   const [isLoadingInvitations, setIsLoadingInvitations] = useState(true);
   const [invitationError, setInvitationError] = useState<string | null>(null);
@@ -124,6 +133,9 @@ export default function DashboardPage() {
       router.replace("/login");
       return;
     }
+    const storedUser = window.localStorage.getItem("newraj_user");
+    const parsedUser = storedUser ? safeParseUser(storedUser) : null;
+    setUserRole(parsedUser?.role ?? null);
     setAuthChecked(true);
   }, [router]);
 
@@ -151,6 +163,8 @@ export default function DashboardPage() {
     void loadInvitations();
   }, [authChecked]);
 
+  const visibleNavItems = userRole === "admin" ? adminNavItems : customerNavItems;
+
   const verifiedCount = useMemo(
     () => invitations.filter((item) => item.emailVerified && item.whatsappVerified).length,
     [invitations],
@@ -166,6 +180,7 @@ export default function DashboardPage() {
   function handleLogout() {
     window.localStorage.removeItem("newraj_access_token");
     window.localStorage.removeItem("newraj_user_role");
+    window.localStorage.removeItem("newraj_user");
     router.replace("/login");
   }
 
@@ -191,7 +206,7 @@ export default function DashboardPage() {
           />
 
           <nav className="mt-8 space-y-2">
-            {navItems.map(([label, Icon, active]) => (
+            {visibleNavItems.map(([label, Icon, active]) => (
               <button
                 className={[
                   "flex h-11 w-full items-center gap-4 rounded-md px-4 text-left text-sm font-medium transition-colors",
@@ -202,7 +217,7 @@ export default function DashboardPage() {
                 key={label}
                 onClick={() => {
                   if (label === "Dashboard") router.push("/dashboard");
-                  if (label === "Invitation") router.push("/dashboard/invitation");
+                  if (label === "Invitation" && userRole === "admin") router.push("/dashboard/invitation");
                 }}
                 type="button"
               >
@@ -541,6 +556,14 @@ function formatDate(value: string) {
     month: "short",
     year: "numeric",
   }).format(new Date(value));
+}
+
+function safeParseUser(value: string): { role?: string } | null {
+  try {
+    return JSON.parse(value) as { role?: string };
+  } catch {
+    return null;
+  }
 }
 
 function formatApiMessage(message: string | string[] | undefined) {

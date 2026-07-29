@@ -50,12 +50,21 @@ export default function DashboardInvitationPage() {
       router.replace("/login");
       return;
     }
+
+    const storedUser = window.localStorage.getItem("newraj_user");
+    const parsedUser = storedUser ? safeParseUser(storedUser) : null;
+    if (parsedUser?.role !== "admin") {
+      router.replace("/dashboard");
+      return;
+    }
+
     setAuthChecked(true);
   }, [router]);
 
   function handleLogout() {
     window.localStorage.removeItem("newraj_access_token");
     window.localStorage.removeItem("newraj_user_role");
+    window.localStorage.removeItem("newraj_user");
     router.replace("/login");
   }
 
@@ -134,4 +143,11 @@ export default function DashboardInvitationPage() {
       </div>
     </main>
   );
+}
+function safeParseUser(value: string): { role?: string } | null {
+  try {
+    return JSON.parse(value) as { role?: string };
+  } catch {
+    return null;
+  }
 }

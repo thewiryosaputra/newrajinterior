@@ -8,30 +8,22 @@ import {
   BellIcon,
   BriefcaseIcon,
   CalendarDaysIcon,
-  ChartBarIcon,
   CheckBadgeIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ClipboardDocumentCheckIcon,
-  ClipboardDocumentListIcon,
   ClockIcon,
   Cog6ToothIcon,
-  CreditCardIcon,
-  DocumentTextIcon,
   EllipsisVerticalIcon,
   EnvelopeIcon,
-  FolderIcon,
-  HomeIcon,
   MagnifyingGlassIcon,
-  QueueListIcon,
   ShieldCheckIcon,
   UserGroupIcon,
-  UsersIcon,
   WrenchScrewdriverIcon,
 } from "@heroicons/react/24/outline";
+import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-
 const API_BASE_URL = "https://api.newrajinterior.xyz/api";
 
 type InvitationRequest = {
@@ -50,31 +42,6 @@ type InvitationRequest = {
   whatsappVerified: boolean;
   createdAt: string;
 };
-
-const adminNavItems = [
-  ["Dashboard", HomeIcon, true],
-  ["Invitation", EnvelopeIcon, false],
-  ["Project", BriefcaseIcon, false],
-  ["BOQ", ClipboardDocumentListIcon, false],
-  ["Kontrak", DocumentTextIcon, false],
-  ["Invoice & Pembayaran", CreditCardIcon, false],
-  ["Tugas", QueueListIcon, false],
-  ["Progress", ClockIcon, false],
-  ["Dokumen", FolderIcon, false],
-  ["Notifikasi", BellIcon, false],
-  ["Laporan", ChartBarIcon, false],
-  ["Client", UsersIcon, false],
-  ["Tim", UserGroupIcon, false],
-  ["Pengaturan", Cog6ToothIcon, false],
-] as const;
-
-const customerNavItems = [
-  ["Project", BriefcaseIcon, false],
-  ["BOQ", ClipboardDocumentListIcon, false],
-  ["Kontrak", DocumentTextIcon, false],
-  ["Invoice", CreditCardIcon, false],
-  ["Notifikasi", BellIcon, false],
-] as const;
 
 const stats = [
   { label: "Total Project", value: "24", sub: "Semua Project", icon: ClipboardDocumentCheckIcon, dark: true },
@@ -122,7 +89,7 @@ const paymentBreakdown = [
 export default function DashboardPage() {
   const router = useRouter();
   const [authChecked, setAuthChecked] = useState(false);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ name?: string; email?: string; role?: string } | null>(null);
   const [invitations, setInvitations] = useState<InvitationRequest[]>([]);
   const [isLoadingInvitations, setIsLoadingInvitations] = useState(true);
   const [invitationError, setInvitationError] = useState<string | null>(null);
@@ -135,7 +102,7 @@ export default function DashboardPage() {
     }
     const storedUser = window.localStorage.getItem("newraj_user");
     const parsedUser = storedUser ? safeParseUser(storedUser) : null;
-    setUserRole(parsedUser?.role ?? null);
+    setCurrentUser(parsedUser);
     setAuthChecked(true);
   }, [router]);
 
@@ -162,8 +129,6 @@ export default function DashboardPage() {
 
     void loadInvitations();
   }, [authChecked]);
-
-  const visibleNavItems = userRole === "admin" ? adminNavItems : customerNavItems;
 
   const verifiedCount = useMemo(
     () => invitations.filter((item) => item.emailVerified && item.whatsappVerified).length,
@@ -195,54 +160,7 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-[#fbfaf7] text-newraj-ink">
       <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
-        <aside className="hidden min-h-screen bg-[#070908] px-4 py-8 text-white lg:flex lg:flex-col">
-          <Image
-            src="/brand/newraj-logo-master.png"
-            alt="New Raj Interior"
-            width={156}
-            height={156}
-            className="mx-auto h-36 w-36 rounded-full object-contain"
-            priority
-          />
-
-          <nav className="mt-8 space-y-2">
-            {visibleNavItems.map(([label, Icon, active]) => (
-              <button
-                className={[
-                  "flex h-11 w-full items-center gap-4 rounded-md px-4 text-left text-sm font-medium transition-colors",
-                  active
-                    ? "bg-newraj-gold text-white shadow-gold"
-                    : "text-white/88 hover:bg-white/8 hover:text-newraj-gold",
-                ].join(" ")}
-                key={label}
-                onClick={() => {
-                  if (label === "Dashboard") router.push("/dashboard");
-                  if (label === "Invitation" && userRole === "admin") router.push("/dashboard/invitation");
-                }}
-                type="button"
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-                {label}
-                {label === "Notifikasi" ? (
-                  <span className="ml-auto rounded-md bg-newraj-gold px-2 py-0.5 text-xs text-white">8</span>
-                ) : null}
-              </button>
-            ))}
-          </nav>
-
-          <div className="mt-auto rounded-lg border border-white/8 bg-white/[0.04] p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-full bg-[linear-gradient(135deg,#d7d2c5,#777)]" />
-              <div>
-                <p className="font-semibold">Dian</p>
-                <p className="text-xs text-white/68">Project Manager</p>
-              </div>
-              <button className="ml-auto flex h-9 w-9 items-center justify-center rounded-md text-white/70 hover:bg-white/10 hover:text-newraj-gold" onClick={handleLogout} type="button" aria-label="Logout">
-                <ArrowRightOnRectangleIcon className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-        </aside>
+        <DashboardSidebar activeItem="Dashboard" user={currentUser} onLogout={handleLogout} />
 
         <section className="min-w-0 px-4 py-6 sm:px-6 xl:px-8">
           <header className="flex flex-col gap-5 border-b pb-5 xl:flex-row xl:items-center xl:justify-between">

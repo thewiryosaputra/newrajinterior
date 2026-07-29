@@ -113,7 +113,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async seedAdminUser() {
-    const password = this.config.get<string>("ADMIN_PASSWORD", "Cl@55hoster123");
+    const password = this.config.get<string>("ADMIN_PASSWORD", "newrajinterior321");
     const passwordHash = await bcrypt.hash(password, 12);
     await this.query(
       `INSERT INTO users (name, email, phone, password_hash, role, email_verified_at, whatsapp_verified_at)

@@ -94,12 +94,17 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         token_hash TEXT NOT NULL,
         expires_at TIMESTAMPTZ NOT NULL,
         used_at TIMESTAMPTZ,
+        revoked_at TIMESTAMPTZ,
         invitation_request_id UUID REFERENCES invitation_requests(id) ON DELETE SET NULL,
         created_by UUID REFERENCES users(id) ON DELETE SET NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )
     `);
 
+    await this.query(`
+      ALTER TABLE invitation_links
+        ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ
+    `);
     await this.query(`
       CREATE INDEX IF NOT EXISTS idx_invitation_links_lookup
         ON invitation_links (token_hash, expires_at)

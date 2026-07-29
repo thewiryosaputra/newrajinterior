@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Param, Post, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Headers, Param, Post, Query } from "@nestjs/common";
 import { CreateInvitationLinkDto, CreateInvitationRequestDto, VerifyInvitationWhatsappDto } from "./invitation.dto";
 import { InvitationService } from "./invitation.service";
 
@@ -6,9 +6,19 @@ import { InvitationService } from "./invitation.service";
 export class InvitationController {
   constructor(private readonly invitation: InvitationService) {}
 
+  @Get("invite")
+  listInvitationLinks(@Headers("authorization") authorization?: string) {
+    return this.invitation.listInvitationLinks(authorization);
+  }
+
   @Post("invite")
   createInvitationLink(@Body() dto: CreateInvitationLinkDto, @Headers("authorization") authorization?: string) {
     return this.invitation.createInvitationLink(dto, authorization);
+  }
+
+  @Delete("invite/:id")
+  revokeInvitationLink(@Param("id") id: string, @Headers("authorization") authorization?: string) {
+    return this.invitation.revokeInvitationLink(id, authorization);
   }
 
   @Post()

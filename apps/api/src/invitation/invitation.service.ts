@@ -45,6 +45,43 @@ export class InvitationService {
       message: "Link request invitation sudah dikirim lewat email dan WhatsApp.",
     };
   }
+
+  async listInvitationLinks(authHeader?: string) {
+    await this.requireAdmin(authHeader);
+    const result = await this.db.query(
+      `SELECT id, customer_name, email, phone, expires_at, used_at, revoked_at, invitation_request_id, created_at
+       FROM invitation_links
+       ORDER BY created_at DESC
+       LIMIT 100`,
+    );
+    return {
+      data: result.rows.map((row) => ({
+        id: row.id,
+        customerName: row.customer_name,
+        email: row.email,
+        phone: row.phone,
+        expiresAt: row.expires_at,
+        usedAt: row.used_at,
+        revokedAt: row.revoked_at,
+        invitationRequestId: row.invitation_request_id,
+        status: row.revoked_at ? "revoked" : row.used_at ? "used" : new Date(row.expires_at) < new Date() ? "expired" : "active",
+        createdAt: row.created_at,
+      })),
+    };
+  }
+
+  async revokeInvitationLink(id: string, authHeader?: string) {
+    await this.requireAdmin(authHeader);
+    const result = await this.db.query(
+      `UPDATE invitation_links
+       SET revoked_at = now()
+       WHERE id = $1 AND used_at IS NULL AND revoked_at IS NULL
+       RETURNING id`,
+      [id],
+    );
+    if (!result.rowCount) throw new NotFoundException("Invitation link tidak ditemukan atau sudah tidak aktif.");
+    return { deleted: true, message: "Invitation link sudah dihapus dan tidak aktif lagi." };
+  }
   async createRequest(dto: CreateInvitationRequestDto) {
     const email = dto.email.trim().toLowerCase();
     const phone = normalizePhone(dto.phone);
@@ -174,7 +211,7 @@ export class InvitationService {
     const result = await this.db.query<{ id: string; customer_name: string; email: string; phone: string }>(
       `SELECT id, customer_name, email, phone
        FROM invitation_links
-       WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()
+       WHERE token_hash = $1 AND used_at IS NULL AND revoked_at IS NULL AND expires_at > now()
        ORDER BY created_at DESC
        LIMIT 1`,
       [hashToken(token)],

@@ -54,6 +54,7 @@ type InvitationRequest = {
 
 const navItems = [
   ["Dashboard", HomeIcon, true],
+  ["Invitation", EnvelopeIcon, false],
   ["Project", BriefcaseIcon, false],
   ["BOQ", ClipboardDocumentListIcon, false],
   ["Kontrak", DocumentTextIcon, false],
@@ -200,6 +201,10 @@ export default function DashboardPage() {
                     : "text-white/88 hover:bg-white/8 hover:text-newraj-gold",
                 ].join(" ")}
                 key={label}
+                onClick={() => {
+                  if (label === "Dashboard") router.push("/dashboard");
+                  if (label === "Invitation") router.push("/dashboard/invitation");
+                }}
                 type="button"
               >
                 <Icon className="h-5 w-5 shrink-0" />

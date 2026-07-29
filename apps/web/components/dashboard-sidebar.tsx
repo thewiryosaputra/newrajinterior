@@ -60,17 +60,17 @@ export function DashboardSidebar({ activeItem, user, onLogout }: { activeItem: s
   const profileRole = isAdmin ? "Administrator" : "Customer";
 
   return (
-    <aside className="hidden min-h-screen bg-[#070908] px-4 py-8 text-white lg:flex lg:flex-col">
+    <aside className="sticky top-0 hidden h-screen bg-[#070908] px-4 py-6 text-white lg:flex lg:flex-col">
       <Image
         src="/brand/newraj-logo-master.png"
         alt="New Raj Interior"
         width={156}
         height={156}
-        className="mx-auto h-36 w-36 rounded-full object-contain"
+        className="mx-auto h-28 w-28 rounded-full object-contain"
         priority
       />
 
-      <nav className="mt-8 space-y-2">
+      <nav className="mt-6 flex-1 space-y-1 overflow-y-auto pr-1">
         {visibleItems.map((item) => {
           const Icon = item.icon;
           const active = item.label === activeItem;
@@ -94,7 +94,7 @@ export function DashboardSidebar({ activeItem, user, onLogout }: { activeItem: s
         })}
       </nav>
 
-      <div className="mt-auto rounded-lg border border-white/8 bg-white/[0.04] p-4">
+      <div className="mt-4 shrink-0 rounded-lg border border-white/8 bg-white/[0.04] p-4">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,#d7d2c5,#777)] text-sm font-bold text-[#111]">
             {profileName.slice(0, 1).toUpperCase()}

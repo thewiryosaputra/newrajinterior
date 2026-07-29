@@ -18,6 +18,7 @@ import {
   HomeIcon,
   QueueListIcon,
   UserGroupIcon,
+  UserPlusIcon,
   UsersIcon,
 } from "@heroicons/react/24/outline";
 
@@ -38,6 +39,7 @@ type DashboardUser = {
 const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: HomeIcon, adminOnly: true },
   { label: "Invitation", href: "/dashboard/invitation", icon: EnvelopeIcon, adminOnly: true },
+  { label: "Prospect Client", href: "/dashboard/prospect-client", icon: UserPlusIcon, adminOnly: true },
   { label: "Project", icon: BriefcaseIcon },
   { label: "BOQ", icon: ClipboardDocumentListIcon },
   { label: "Kontrak", icon: DocumentTextIcon },

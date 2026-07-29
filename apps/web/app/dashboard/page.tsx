@@ -30,7 +30,6 @@ import {
   WrenchScrewdriverIcon,
 } from "@heroicons/react/24/outline";
 import { Badge } from "@/components/ui/badge";
-import { AdminApprovalPanel } from "@/components/admin-approval-panel";
 import { Button } from "@/components/ui/button";
 
 const API_BASE_URL = "https://api.newrajinterior.xyz/api";
@@ -262,10 +261,6 @@ export default function DashboardPage() {
             {liveStats.map((item) => (
               <StatCard key={item.label} {...item} />
             ))}
-          </div>
-
-          <div className="mt-5">
-            <AdminApprovalPanel />
           </div>
 
           <div className="mt-5 grid gap-5 xl:grid-cols-[1.45fr_1fr]">

@@ -20,7 +20,7 @@ import {
   UsersIcon,
   ClipboardDocumentListIcon,
 } from "@heroicons/react/24/outline";
-import { AdminApprovalPanel, CreateInvitationPanel } from "@/components/admin-approval-panel";
+import { CreateInvitationPanel } from "@/components/admin-approval-panel";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
@@ -129,7 +129,6 @@ export default function DashboardInvitationPage() {
 
           <div className="mt-5 space-y-5">
             <CreateInvitationPanel />
-            <AdminApprovalPanel />
           </div>
         </section>
       </div>

@@ -57,7 +57,8 @@ const benefits = [
   },
 ];
 
-const projectTypes = [
+const projectCategories = ["Interior", "Renovasi"];
+const interiorProjectTypes = [
   "Kitchen Set",
   "Bathroom Cabinet",
   "Wardrobe",
@@ -66,6 +67,7 @@ const projectTypes = [
   "Office Interior",
   "Full Interior Package",
 ];
+const renovationProjectTypes = ["Bangun Baru", "Renovasi"];
 
 const budgetRanges = [
   "Di bawah Rp 25 juta",
@@ -133,12 +135,18 @@ function InvitationRequestContent() {
   const [position, setPosition] = useState(defaultPosition);
   const [selectedDate, setSelectedDate] = useState(new Date(2026, 6, 28));
   const [calendarMonth, setCalendarMonth] = useState(new Date(2026, 6, 1));
-  const [projectType, setProjectType] = useState(projectTypes[0]);
+  const [projectCategory, setProjectCategory] = useState(projectCategories[0]);
+  const [projectType, setProjectType] = useState(interiorProjectTypes[0]);
   const [budget, setBudget] = useState(budgetRanges[2]);
+  const projectTypeOptions = projectCategory === "Renovasi" ? renovationProjectTypes : interiorProjectTypes;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [submitStatus, setSubmitStatus] = useState<"error" | "success">("success");
 
+  useEffect(() => {
+    const nextOptions = projectCategory === "Renovasi" ? renovationProjectTypes : interiorProjectTypes;
+    setProjectType(nextOptions[0]);
+  }, [projectCategory]);
   useEffect(() => {
     if (!shouldSearchAddress || address.trim().length < 3) {
       setSuggestions([]);
@@ -240,7 +248,7 @@ function InvitationRequestContent() {
           phone: phone.trim(),
           email: email.trim(),
           surveyDate: toApiDate(selectedDate),
-          projectType,
+          projectType: `${projectCategory} - ${projectType}`,
           estimatedBudget: budget,
           projectAddress: address.trim(),
           latitude: Number(position.lat.toFixed(7)),
@@ -393,12 +401,19 @@ function InvitationRequestContent() {
                   />
                 </div>
 
-                <div className="grid gap-5 md:grid-cols-2">
+                <div className="grid gap-5 md:grid-cols-3">
+                  <SelectField
+                    icon={BriefcaseIcon}
+                    label="Kategori Project"
+                    value={projectCategory}
+                    options={projectCategories}
+                    onChange={setProjectCategory}
+                  />
                   <SelectField
                     icon={BriefcaseIcon}
                     label="Tipe Project"
                     value={projectType}
-                    options={projectTypes}
+                    options={projectTypeOptions}
                     onChange={setProjectType}
                   />
                   <SelectField

@@ -35,19 +35,35 @@ export class VerificationService {
   }
 
   async sendPasswordSetupEmail(target: string, token: string) {
-    const appUrl = this.config.get<string>("APP_URL", "http://localhost:3000");
-    const setupUrl = `${appUrl}/setup-password?token=${token}&email=${encodeURIComponent(target)}`;
+    const setupUrl = this.createPasswordSetupUrl(target, token);
 
     try {
       await this.sendEmail(
         target,
         "Setup password akun New Raj Interior",
         `Request invitation Anda sudah disetujui. Buat password akun melalui link berikut: ${setupUrl}\n\nLink berlaku 24 jam.`,
-        `<p>Request invitation Anda sudah disetujui.</p><p><a href="${setupUrl}">Setup Password</a></p><p>Link berlaku 24 jam.</p><p>Website: ${appUrl}</p>`,
+        `<p>Request invitation Anda sudah disetujui.</p><p><a href="${setupUrl}">Setup Password</a></p><p>Link berlaku 24 jam.</p>`,
       );
     } catch (error) {
       this.logger.warn(`Email setup password untuk ${target} gagal dikirim: ${getErrorMessage(error)}`);
     }
+  }
+
+  async sendPasswordSetupWhatsapp(phone: string, email: string, token: string) {
+    const setupUrl = this.createPasswordSetupUrl(email, token);
+    try {
+      await this.sendWhatsapp(
+        phone,
+        `Request invitation New Raj Interior Anda sudah disetujui. Buat password akun melalui link berikut: ${setupUrl}\n\nLink berlaku 24 jam.`,
+      );
+    } catch (error) {
+      this.logger.warn(`WhatsApp setup password untuk ${phone} gagal dikirim: ${getErrorMessage(error)}`);
+    }
+  }
+
+  private createPasswordSetupUrl(email: string, token: string) {
+    const appUrl = this.config.get<string>("APP_URL", "http://localhost:3000");
+    return `${appUrl}/setup-password?token=${token}&email=${encodeURIComponent(email)}`;
   }
 
   async sendInvitationLink(input: { email: string; phone: string; customerName: string; link: string }) {

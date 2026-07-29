@@ -195,8 +195,9 @@ export class InvitationService {
       [userId, id, hashToken(token)],
     );
     await this.verification.sendPasswordSetupEmail(row.email, token);
+    await this.verification.sendPasswordSetupWhatsapp(row.phone, row.email, token);
 
-    return { approved: true, message: "Request disetujui. Email setup password sudah dikirim ke customer." };
+    return { approved: true, message: "Request disetujui. Link setup password sudah dikirim lewat email dan WhatsApp." };
   }
 
   verifyEmail(email: string, token: string) {

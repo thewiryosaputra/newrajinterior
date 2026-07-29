@@ -38,7 +38,7 @@ export default function VerifyWhatsappPage() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/verify-whatsapp`, {
+      const response = await fetch(`${API_BASE_URL}/invitation-requests/verify-whatsapp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: phone.trim(), otp: otp.trim() }),
@@ -52,7 +52,7 @@ export default function VerifyWhatsappPage() {
       }
 
       setStatus("success");
-      setMessage("WhatsApp berhasil diverifikasi. Akun sudah siap digunakan jika email juga sudah terverifikasi.");
+      setMessage("WhatsApp berhasil diverifikasi. Pendaftaran Anda sedang menunggu approval admin. Setelah disetujui, link setup password akan dikirim melalui WhatsApp.");
     } catch (error) {
       setStatus("error");
       setMessage("Tidak bisa terhubung ke server API. Coba lagi sebentar.");
@@ -105,11 +105,11 @@ export default function VerifyWhatsappPage() {
             <div className="max-w-md">
               <h1 className="font-display text-4xl font-bold">WhatsApp Verification</h1>
               <p className="mt-5 text-lg leading-8 text-white/82">
-                Masukkan kode OTP yang dikirim ke WhatsApp customer untuk membuka akses akun dan invitation.
+                Setelah OTP berhasil, request Anda akan masuk ke antrean approval admin sebelum akun bisa dibuat.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-6">
-              {["OTP berlaku sementara", "Email juga wajib verified"].map((item) => (
+              {["OTP berlaku sementara", "Menunggu approval admin"].map((item) => (
                 <div className="rounded-lg border border-newraj-gold/35 bg-black/25 p-4" key={item}>
                   <ShieldCheckIcon className="h-6 w-6 text-newraj-gold" />
                   <p className="mt-3 text-sm leading-6 text-white/78">{item}</p>
@@ -134,7 +134,7 @@ export default function VerifyWhatsappPage() {
               </div>
               <h1 className="font-display text-4xl font-bold">Verifikasi WhatsApp</h1>
               <p className="mt-3 text-base leading-7 text-muted-foreground">
-                Masukkan nomor WhatsApp dan kode OTP 6 digit yang diterima customer.
+                Masukkan nomor WhatsApp dan kode OTP 6 digit. Setelah berhasil, pendaftaran akan menunggu approval admin.
               </p>
 
               <form className="mt-9 space-y-6" onSubmit={handleSubmit}>
@@ -163,13 +163,29 @@ export default function VerifyWhatsappPage() {
                   </div>
                 ) : null}
 
-                <Button className="h-12 w-full text-base" disabled={isSubmitting} type="submit">
-                  {isSubmitting ? "Memverifikasi..." : "Verifikasi WhatsApp"}
-                </Button>
+                {status === "success" ? (
+                  <div className="rounded-lg border border-primary/25 bg-[#fffaf0] p-5">
+                    <div className="flex items-start gap-3">
+                      <CheckCircleIcon className="mt-0.5 h-6 w-6 shrink-0 text-[#b87900]" />
+                      <div>
+                        <p className="font-display text-lg font-semibold">Menunggu Approval Admin</p>
+                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                          Admin New Raj Interior akan meninjau pendaftaran Anda. Jika sudah disetujui, link setup password akan dikirim ke WhatsApp Anda. Setelah password dibuat, Anda baru bisa login ke dashboard customer.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <Button className="h-12 w-full text-base" disabled={isSubmitting} type="submit">
+                      {isSubmitting ? "Memverifikasi..." : "Verifikasi WhatsApp"}
+                    </Button>
 
-                <Button className="h-12 w-full bg-white text-foreground shadow-sm hover:bg-muted" disabled={isSubmitting} onClick={resendOtp} type="button" variant="outline">
-                  Kirim Ulang OTP
-                </Button>
+                    <Button className="h-12 w-full bg-white text-foreground shadow-sm hover:bg-muted" disabled={isSubmitting} onClick={resendOtp} type="button" variant="outline">
+                      Kirim Ulang OTP
+                    </Button>
+                  </>
+                )}
 
                 <Button asChild className="h-12 w-full bg-white text-foreground shadow-sm hover:bg-muted" variant="outline">
                   <Link href="/login">

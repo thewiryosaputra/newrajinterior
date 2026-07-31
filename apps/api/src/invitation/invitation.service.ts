@@ -90,8 +90,8 @@ export class InvitationService {
     const result = await this.db.query(
       `INSERT INTO invitation_requests (
         customer_name, phone, email, survey_date, project_type, estimated_budget,
-        project_address, latitude, longitude, notes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        project_address, latitude, longitude, notes, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending_approval')
       RETURNING id, customer_name, phone, email, survey_date, project_type, estimated_budget,
         project_address, latitude, longitude, notes, status, email_verified_at, whatsapp_verified_at, approved_at, user_id, created_at`,
       [
@@ -109,12 +109,11 @@ export class InvitationService {
     );
 
     await this.db.query("UPDATE invitation_links SET used_at = now(), invitation_request_id = $1 WHERE id = $2", [result.rows[0].id, invitationLink.id]);
-    await this.verification.sendWhatsappOtp(phone);
 
     return {
       invitationRequest: mapInvitation(result.rows[0]),
-      verificationRequired: { email: false, whatsapp: true },
-      message: "Request invitation tersimpan. Silakan verifikasi OTP WhatsApp, lalu tunggu approval admin.",
+      verificationRequired: { email: false, whatsapp: false },
+      message: "Request jadwal kunjungan berhasil disimpan. Silakan tunggu approval admin.",
     };
   }
 
@@ -174,10 +173,6 @@ export class InvitationService {
     );
     const row = request.rows[0];
     if (!row) throw new NotFoundException("Invitation request tidak ditemukan.");
-    if (!row.whatsapp_verified_at) {
-      throw new BadRequestException("Request wajib verifikasi WhatsApp sebelum approval.");
-    }
-
     const tempHash = await bcrypt.hash(randomUUID(), 12);
     const userResult = await this.db.query<{ id: string }>(
       `INSERT INTO users (name, email, phone, password_hash, role, email_verified_at, whatsapp_verified_at)
@@ -189,7 +184,7 @@ export class InvitationService {
         whatsapp_verified_at = COALESCE(users.whatsapp_verified_at, EXCLUDED.whatsapp_verified_at),
         updated_at = now()
        RETURNING id`,
-      [row.customer_name, row.email || internalEmailFromPhone(row.phone), row.phone, tempHash, row.email_verified_at ?? row.whatsapp_verified_at, row.whatsapp_verified_at],
+      [row.customer_name, row.email || internalEmailFromPhone(row.phone), row.phone, tempHash, row.email_verified_at ?? new Date(), row.whatsapp_verified_at ?? new Date()],
     );
 
     const userId = userResult.rows[0].id;

@@ -55,7 +55,7 @@ const benefits = [
 
 export default function LoginPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<LoginMode>("team");
+  const [mode, setMode] = useState<LoginMode>("client");
   const [teamEmail, setTeamEmail] = useState("");
   const [teamPassword, setTeamPassword] = useState("");
   const [clientPhone, setClientPhone] = useState("");
@@ -210,16 +210,6 @@ export default function LoginPage() {
 
               <div className="mt-8 grid grid-cols-2 rounded-lg border bg-[#faf9f5] p-1">
                 <button
-                  className={["h-11 rounded-md text-sm font-semibold transition-colors", mode === "team" ? "bg-newraj-gold text-white shadow-sm" : "text-newraj-charcoal hover:bg-white"].join(" ")}
-                  onClick={() => {
-                    setMode("team");
-                    setMessage(null);
-                  }}
-                  type="button"
-                >
-                  Login Team
-                </button>
-                <button
                   className={["h-11 rounded-md text-sm font-semibold transition-colors", mode === "client" ? "bg-newraj-gold text-white shadow-sm" : "text-newraj-charcoal hover:bg-white"].join(" ")}
                   onClick={() => {
                     setMode("client");
@@ -229,9 +219,39 @@ export default function LoginPage() {
                 >
                   Login Client
                 </button>
+                <button
+                  className={["h-11 rounded-md text-sm font-semibold transition-colors", mode === "team" ? "bg-newraj-gold text-white shadow-sm" : "text-newraj-charcoal hover:bg-white"].join(" ")}
+                  onClick={() => {
+                    setMode("team");
+                    setMessage(null);
+                  }}
+                  type="button"
+                >
+                  Login Team
+                </button>
               </div>
 
-              {mode === "team" ? (
+              {mode === "client" ? (
+                <form className="mt-8 space-y-6" onSubmit={handleClientLogin}>
+                  <div>
+                    <label className="text-sm font-semibold" htmlFor="client-phone">Nomor WhatsApp</label>
+                    <div className="relative mt-3">
+                      <PhoneIcon className="absolute left-4 top-3 h-5 w-5 text-muted-foreground" />
+                      <Input id="client-phone" className="h-12 pl-12" inputMode="tel" placeholder="Contoh: 081234567890" value={clientPhone} onChange={(event) => setClientPhone(event.target.value)} />
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                      Client cukup memasukkan nomor WhatsApp. Sistem akan mengirim kode OTP untuk login.
+                    </p>
+                  </div>
+
+                  {message ? <StatusMessage status={status} message={message} /> : null}
+
+                  <Button className="h-12 w-full text-base" disabled={isSubmitting} type="submit">
+                    <ChatBubbleLeftRightIcon className="h-5 w-5" />
+                    {isSubmitting ? "Mengirim OTP..." : "Kirim OTP WhatsApp"}
+                  </Button>
+                </form>
+              ) : (
                 <form className="mt-8 space-y-6" onSubmit={handleTeamLogin}>
                   <div>
                     <label className="text-sm font-semibold" htmlFor="team-email">Email Team</label>
@@ -264,26 +284,6 @@ export default function LoginPage() {
 
                   <Button className="h-12 w-full text-base" disabled={isSubmitting} type="submit">
                     {isSubmitting ? "Memproses..." : "Login Team"}
-                  </Button>
-                </form>
-              ) : (
-                <form className="mt-8 space-y-6" onSubmit={handleClientLogin}>
-                  <div>
-                    <label className="text-sm font-semibold" htmlFor="client-phone">Nomor WhatsApp</label>
-                    <div className="relative mt-3">
-                      <PhoneIcon className="absolute left-4 top-3 h-5 w-5 text-muted-foreground" />
-                      <Input id="client-phone" className="h-12 pl-12" inputMode="tel" placeholder="Contoh: 081234567890" value={clientPhone} onChange={(event) => setClientPhone(event.target.value)} />
-                    </div>
-                    <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                      Client cukup memasukkan nomor WhatsApp. Sistem akan mengirim kode OTP untuk login.
-                    </p>
-                  </div>
-
-                  {message ? <StatusMessage status={status} message={message} /> : null}
-
-                  <Button className="h-12 w-full text-base" disabled={isSubmitting} type="submit">
-                    <ChatBubbleLeftRightIcon className="h-5 w-5" />
-                    {isSubmitting ? "Mengirim OTP..." : "Kirim OTP WhatsApp"}
                   </Button>
                 </form>
               )}

@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import {
@@ -111,6 +111,7 @@ export default function InvitationRequestPage() {
 }
 
 function InvitationRequestContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const invitationToken = searchParams.get("token") ?? "";
   const [customerName, setCustomerName] = useState("");

@@ -3,7 +3,7 @@ import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
 import { DatabaseService } from "../database/database.service";
 import { hashToken, normalizePhone, VerificationService } from "../verification/verification.service";
-import { LoginDto, RegisterDto, ResendVerificationDto, SetupPasswordDto, VerifyWhatsappDto } from "./auth.dto";
+import { ClientOtpLoginDto, ClientOtpRequestDto, LoginDto, RegisterDto, ResendVerificationDto, SetupPasswordDto, VerifyWhatsappDto } from "./auth.dto";
 
 type UserRow = {
   id: string;
@@ -82,6 +82,43 @@ export class AuthService {
       user: sanitizeUser(user),
       accessToken: await this.signUser(user),
       verificationRequired: { email: false, whatsapp: false },
+    };
+  }
+
+  async requestClientOtp(dto: ClientOtpRequestDto) {
+    const phone = normalizePhone(dto.phone);
+    const result = await this.db.query<UserRow>(
+      `SELECT id, name, email, phone, password_hash, role, email_verified_at, whatsapp_verified_at
+       FROM users
+       WHERE phone = $1 AND role = 'customer'
+       LIMIT 1`,
+      [phone],
+    );
+    const user = result.rows[0];
+    if (!user || !user.whatsapp_verified_at) {
+      throw new UnauthorizedException("Nomor WhatsApp belum aktif sebagai client.");
+    }
+    await this.verification.sendWhatsappOtp(user.phone, user.id);
+    return { sent: true, message: "Kode OTP login sudah dikirim ke WhatsApp." };
+  }
+
+  async verifyClientOtp(dto: ClientOtpLoginDto) {
+    const phone = normalizePhone(dto.phone);
+    await this.verification.verifyWhatsapp(phone, dto.otp);
+    const result = await this.db.query<UserRow>(
+      `SELECT id, name, email, phone, password_hash, role, email_verified_at, whatsapp_verified_at
+       FROM users
+       WHERE phone = $1 AND role = 'customer'
+       LIMIT 1`,
+      [phone],
+    );
+    const user = result.rows[0];
+    if (!user) throw new UnauthorizedException("Nomor WhatsApp client tidak ditemukan.");
+    return {
+      user: sanitizeUser(user),
+      accessToken: await this.signUser(user),
+      verificationRequired: { email: false, whatsapp: false },
+      message: "Login client berhasil.",
     };
   }
 

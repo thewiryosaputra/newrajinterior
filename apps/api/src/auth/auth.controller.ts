@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Post, Query } from "@nestjs/common";
 import { AuthService } from "./auth.service";
-import { LoginDto, RegisterDto, ResendVerificationDto, SetupPasswordDto, VerifyWhatsappDto } from "./auth.dto";
+import { ClientOtpLoginDto, ClientOtpRequestDto, LoginDto, RegisterDto, ResendVerificationDto, SetupPasswordDto, VerifyWhatsappDto } from "./auth.dto";
 
 @Controller("auth")
 export class AuthController {
@@ -14,6 +14,16 @@ export class AuthController {
   @Post("login")
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
+  }
+
+  @Post("client/request-otp")
+  requestClientOtp(@Body() dto: ClientOtpRequestDto) {
+    return this.auth.requestClientOtp(dto);
+  }
+
+  @Post("client/verify-otp")
+  verifyClientOtp(@Body() dto: ClientOtpLoginDto) {
+    return this.auth.verifyClientOtp(dto);
   }
 
   @Post("resend-verification")

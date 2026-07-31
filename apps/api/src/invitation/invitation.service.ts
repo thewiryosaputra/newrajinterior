@@ -14,7 +14,6 @@ export class InvitationService {
     private readonly jwt: JwtService,
   ) {}
 
-
   async createInvitationLink(dto: CreateInvitationLinkDto, authHeader?: string) {
     const admin = await this.requireAdmin(authHeader);
     const phone = normalizePhone(dto.phone);
@@ -82,6 +81,7 @@ export class InvitationService {
     if (!result.rowCount) throw new NotFoundException("Invitation link tidak ditemukan atau sudah tidak aktif.");
     return { deleted: true, message: "Invitation link sudah dihapus dan tidak aktif lagi." };
   }
+
   async createRequest(dto: CreateInvitationRequestDto) {
     const phone = normalizePhone(dto.phone);
     const invitationLink = await this.consumeInvitationLink(dto.token, phone);
@@ -109,7 +109,6 @@ export class InvitationService {
     );
 
     await this.db.query("UPDATE invitation_links SET used_at = now(), invitation_request_id = $1 WHERE id = $2", [result.rows[0].id, invitationLink.id]);
-
     await this.verification.sendWhatsappOtp(phone);
 
     return {
@@ -126,6 +125,20 @@ export class InvitationService {
        FROM invitation_requests
        ORDER BY created_at DESC
        LIMIT 50`,
+    );
+    return { data: result.rows.map(mapInvitation) };
+  }
+
+  async listMyRequests(authHeader?: string) {
+    const user = await this.requireUser(authHeader);
+    const result = await this.db.query(
+      `SELECT id, customer_name, phone, email, survey_date, project_type, estimated_budget,
+        project_address, latitude, longitude, notes, status, email_verified_at, whatsapp_verified_at, approved_at, user_id, created_at
+       FROM invitation_requests
+       WHERE user_id = $1 OR phone = $2
+       ORDER BY created_at DESC
+       LIMIT 20`,
+      [user.sub, user.phone],
     );
     return { data: result.rows.map(mapInvitation) };
   }
@@ -187,16 +200,8 @@ export class InvitationService {
       [id, admin.sub, userId],
     );
 
-    const token = randomUUID().replace(/-/g, "");
-    await this.db.query(
-      `INSERT INTO password_setup_tokens (user_id, invitation_request_id, token_hash, expires_at)
-       VALUES ($1, $2, $3, now() + interval '24 hours')`,
-      [userId, id, hashToken(token)],
-    );
-    await this.verification.sendPasswordSetupEmail(row.email, token);
-    await this.verification.sendPasswordSetupWhatsapp(row.phone, row.email, token);
-
-    return { approved: true, message: "Request disetujui. Link setup password sudah dikirim lewat email dan WhatsApp." };
+    await this.verification.sendAccountApprovedWhatsapp(row.phone);
+    return { approved: true, message: "Request disetujui. Akun client sudah aktif dan pemberitahuan login dikirim lewat WhatsApp." };
   }
 
   verifyEmail(email: string, token: string) {
@@ -223,6 +228,16 @@ export class InvitationService {
     }
     return row;
   }
+
+  private async requireUser(authHeader?: string) {
+    const token = authHeader?.replace(/^Bearer\s+/i, "");
+    if (!token) throw new UnauthorizedException("Login diperlukan.");
+    const payload = await this.jwt.verifyAsync<{ sub: string; role: string; email: string }>(token).catch(() => null);
+    if (!payload) throw new UnauthorizedException("Token login tidak valid.");
+    const result = await this.db.query<{ phone: string }>("SELECT phone FROM users WHERE id = $1 LIMIT 1", [payload.sub]);
+    return { ...payload, phone: result.rows[0]?.phone ?? "" };
+  }
+
   private async requireAdmin(authHeader?: string) {
     const token = authHeader?.replace(/^Bearer\s+/i, "");
     if (!token) throw new UnauthorizedException("Admin login diperlukan.");
@@ -254,6 +269,7 @@ function mapInvitation(row: Record<string, unknown>) {
     createdAt: row.created_at,
   };
 }
+
 function internalEmailFromPhone(phone: string) {
   return `${phone.replace(/[^0-9]/g, "")}@wa.newraj.local`;
 }

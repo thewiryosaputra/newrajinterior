@@ -75,6 +75,14 @@ export class VerificationService {
       this.logger.warn(`WhatsApp invitation untuk ${input.phone} gagal dikirim: ${getErrorMessage(error)}`);
     }
   }
+  async sendAccountApprovedWhatsapp(phone: string) {
+    const appUrl = this.config.get<string>("APP_URL", "https://crm.newrajinterior.xyz");
+    await this.sendWhatsapp(
+      phone,
+      `Selamat, akun New Raj Interior Anda berhasil dibuat. Anda bisa login sebagai client melalui: ${appUrl}/login dengan memasukkan nomor WhatsApp Anda.`,
+    );
+  }
+
   async sendWhatsappOtp(target: string, userId?: string) {
     const otp = String(randomInt(100000, 999999));
     await this.storeToken({ target: normalizePhone(target), channel: "whatsapp", token: otp, userId, minutes: 10 });

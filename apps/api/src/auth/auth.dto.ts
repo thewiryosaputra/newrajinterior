@@ -56,3 +56,18 @@ export class ResendVerificationDto {
   @IsOptional()
   phone?: string;
 }
+export class ClientOtpRequestDto {
+  @IsString()
+  @IsNotEmpty()
+  phone!: string;
+}
+
+export class ClientOtpLoginDto {
+  @IsString()
+  @IsNotEmpty()
+  phone!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  otp!: string;
+}

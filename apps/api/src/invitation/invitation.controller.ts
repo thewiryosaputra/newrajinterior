@@ -31,6 +31,11 @@ export class InvitationController {
     return this.invitation.listRequests();
   }
 
+  @Get("my")
+  listMyRequests(@Headers("authorization") authorization?: string) {
+    return this.invitation.listMyRequests(authorization);
+  }
+
   @Get("verify-email/callback")
   verifyEmail(@Query("email") email: string, @Query("token") token: string) {
     return this.invitation.verifyEmail(email, token);

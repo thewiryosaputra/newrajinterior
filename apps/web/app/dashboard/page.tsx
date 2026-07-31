@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -17,6 +18,8 @@ import {
   EllipsisVerticalIcon,
   EnvelopeIcon,
   MagnifyingGlassIcon,
+  MapPinIcon,
+  PhoneIcon,
   ShieldCheckIcon,
   UserGroupIcon,
   WrenchScrewdriverIcon,
@@ -25,6 +28,18 @@ import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 const API_BASE_URL = "https://api.newrajinterior.xyz/api";
+
+const ReadOnlyLocationMap = dynamic(
+  () => import("@/components/read-only-location-map").then((module) => module.ReadOnlyLocationMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full min-h-[320px] items-center justify-center rounded-lg bg-[#f8f4ea] text-sm text-muted-foreground">
+        Memuat peta...
+      </div>
+    ),
+  },
+);
 
 type InvitationRequest = {
   id: string;
@@ -163,6 +178,22 @@ export default function DashboardPage() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#fbfaf7] text-newraj-ink">
         <div className="rounded-lg border bg-white px-6 py-4 text-sm font-medium shadow-sm">Memeriksa sesi login...</div>
+      </main>
+    );
+  }
+
+  if (currentUser?.role === "surveyor") {
+    return (
+      <main className="min-h-screen bg-[#fbfaf7] text-newraj-ink">
+        <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
+          <DashboardSidebar activeItem="Survey" user={currentUser} onLogout={handleLogout} />
+          <SurveyorDashboard
+            invitations={invitations.filter((item) => item.status === "approved" || Boolean(item.approvedAt))}
+            isLoading={isLoadingInvitations}
+            error={invitationError}
+            surveyorName={currentUser.name || "Surveyor"}
+          />
+        </div>
       </main>
     );
   }
@@ -494,6 +525,125 @@ function ProjectRow({
 }
 
 
+function SurveyorDashboard({
+  invitations,
+  isLoading,
+  error,
+  surveyorName,
+}: {
+  invitations: InvitationRequest[];
+  isLoading: boolean;
+  error: string | null;
+  surveyorName: string;
+}) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = invitations.find((item) => item.id === selectedId) ?? invitations[0] ?? null;
+
+  useEffect(() => {
+    if (!selectedId && invitations[0]) setSelectedId(invitations[0].id);
+  }, [invitations, selectedId]);
+
+  return (
+    <section className="min-w-0 px-4 py-6 sm:px-6 xl:px-8">
+      <header className="flex flex-col gap-3 border-b pb-5 xl:flex-row xl:items-end xl:justify-between">
+        <div>
+          <h1 className="font-display text-4xl font-bold">Dashboard Surveyor</h1>
+          <p className="mt-2 text-sm text-newraj-charcoal">Selamat datang, {surveyorName}. Berikut client approved yang perlu disurvey.</p>
+        </div>
+        <Badge variant="warning">{invitations.length} Jadwal Survey</Badge>
+      </header>
+
+      {isLoading ? (
+        <p className="mt-6 rounded-lg border bg-white p-5 text-sm text-muted-foreground">Memuat daftar survey...</p>
+      ) : error ? (
+        <p className="mt-6 rounded-lg border border-red-200 bg-red-50 p-5 text-sm text-red-700">{error}</p>
+      ) : invitations.length === 0 ? (
+        <p className="mt-6 rounded-lg border bg-white p-5 text-sm text-muted-foreground">Belum ada client approved untuk disurvey.</p>
+      ) : (
+        <div className="mt-6 grid gap-5 xl:grid-cols-[420px_1fr]">
+          <div className="space-y-3">
+            {invitations.map((item) => (
+              <button
+                className={[
+                  "w-full rounded-lg border bg-white p-5 text-left shadow-sm transition-colors",
+                  selected?.id === item.id ? "border-newraj-gold bg-[#fffaf0]" : "hover:border-newraj-gold/60",
+                ].join(" ")}
+                key={item.id}
+                onClick={() => setSelectedId(item.id)}
+                type="button"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold">{item.customerName}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{item.projectType}</p>
+                  </div>
+                  <Badge variant="success">Approved</Badge>
+                </div>
+                <div className="mt-4 grid gap-2 text-sm text-newraj-charcoal">
+                  <span className="flex items-center gap-2"><CalendarDaysIcon className="h-4 w-4 text-newraj-gold" />{formatDateTime(item.surveyDate)}</span>
+                  <span className="flex items-center gap-2"><MapPinIcon className="h-4 w-4 text-newraj-gold" />{item.projectAddress}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {selected ? <SurveyDetail item={selected} /> : null}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SurveyDetail({ item }: { item: InvitationRequest }) {
+  const position = { lat: item.latitude, lng: item.longitude };
+  const googleMapsUrl = "https://www.google.com/maps/dir/?api=1&destination=" + item.latitude + "," + item.longitude + "&travelmode=driving";
+
+  return (
+    <section className="rounded-lg border bg-white p-6 shadow-sm">
+      <div className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="font-display text-3xl font-semibold">{item.customerName}</h2>
+          <p className="mt-2 text-sm text-muted-foreground">{item.projectType}</p>
+        </div>
+        <Button asChild className="h-11">
+          <a href={googleMapsUrl} target="_blank" rel="noreferrer">
+            <MapPinIcon className="h-5 w-5" />
+            Navigasikan ke Google
+          </a>
+        </Button>
+      </div>
+
+      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <DetailBox label="Nomor WhatsApp" value={item.phone} />
+        <DetailBox label="Tanggal & Waktu" value={formatDateTime(item.surveyDate)} />
+        <DetailBox label="Latitude" value={String(item.latitude)} />
+        <DetailBox label="Longitude" value={String(item.longitude)} />
+      </div>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+        <div className="space-y-5">
+          <div className="rounded-lg border bg-[#fffdf8] p-5">
+            <p className="flex items-center gap-2 text-sm font-semibold"><MapPinIcon className="h-5 w-5 text-newraj-gold" />Alamat Project</p>
+            <p className="mt-3 text-sm leading-7 text-newraj-charcoal">{item.projectAddress}</p>
+          </div>
+          {item.notes ? (
+            <div className="rounded-lg border bg-white p-5">
+              <p className="text-sm font-semibold">Catatan Client</p>
+              <p className="mt-3 whitespace-pre-line text-sm leading-7 text-newraj-charcoal">{item.notes}</p>
+            </div>
+          ) : null}
+          <a className="flex h-12 items-center justify-center gap-2 rounded-md border bg-white px-4 text-sm font-semibold shadow-sm hover:bg-muted" href={"tel:" + item.phone}>
+            <PhoneIcon className="h-5 w-5" /> Call Client
+          </a>
+        </div>
+        <div className="overflow-hidden rounded-lg border bg-white shadow-sm">
+          <ReadOnlyLocationMap position={position} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function ClientInvitationDetail({ item }: { item: InvitationRequest }) {
   return (
     <section className="rounded-lg border bg-white p-6 shadow-sm">
@@ -552,6 +702,18 @@ function formatDate(value: string) {
     day: "2-digit",
     month: "short",
     year: "numeric",
+  }).format(new Date(value));
+}
+
+function formatDateTime(value: string) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("id-ID", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(new Date(value));
 }
 

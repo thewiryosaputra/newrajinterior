@@ -16,6 +16,7 @@ import {
   EnvelopeIcon,
   FolderIcon,
   HomeIcon,
+  MapPinIcon,
   QueueListIcon,
   UserGroupIcon,
   UserPlusIcon,
@@ -28,6 +29,7 @@ type NavItem = {
   href?: string;
   icon: NavIcon;
   adminOnly?: boolean;
+  surveyorOnly?: boolean;
 };
 
 type DashboardUser = {
@@ -40,6 +42,7 @@ const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: HomeIcon, adminOnly: true },
   { label: "Invitation", href: "/dashboard/invitation", icon: EnvelopeIcon, adminOnly: true },
   { label: "Prospect Client", href: "/dashboard/prospect-client", icon: UserPlusIcon, adminOnly: true },
+  { label: "Survey", href: "/dashboard", icon: MapPinIcon, surveyorOnly: true },
   { label: "Project", icon: BriefcaseIcon },
   { label: "BOQ", icon: ClipboardDocumentListIcon },
   { label: "Kontrak", icon: DocumentTextIcon },
@@ -57,9 +60,14 @@ const navItems: NavItem[] = [
 export function DashboardSidebar({ activeItem, user, onLogout }: { activeItem: string; user: DashboardUser | null; onLogout: () => void }) {
   const router = useRouter();
   const isAdmin = user?.role === "admin";
-  const visibleItems = navItems.filter((item) => isAdmin || !item.adminOnly);
-  const profileName = user?.name || (isAdmin ? "Admin" : "Customer");
-  const profileRole = isAdmin ? "Administrator" : "Customer";
+  const isSurveyor = user?.role === "surveyor";
+  const visibleItems = navItems.filter((item) => {
+    if (item.surveyorOnly) return isSurveyor;
+    if (isSurveyor) return false;
+    return isAdmin || !item.adminOnly;
+  });
+  const profileName = user?.name || (isAdmin ? "Admin" : isSurveyor ? "Surveyor" : "Customer");
+  const profileRole = isAdmin ? "Administrator" : isSurveyor ? "Surveyor" : "Customer";
 
   return (
     <aside className="sticky top-0 hidden h-screen bg-[#070908] px-4 py-6 text-white lg:flex lg:flex-col">

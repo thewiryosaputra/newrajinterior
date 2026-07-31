@@ -12,7 +12,6 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ClipboardDocumentCheckIcon,
-  CurrencyDollarIcon,
   GlobeAltIcon,
   MapIcon,
   MapPinIcon,
@@ -67,14 +66,6 @@ const interiorProjectTypes = [
   "Full Interior Package",
 ];
 const renovationProjectTypes = ["Bangun Baru", "Renovasi"];
-
-const budgetRanges = [
-  "Di bawah Rp 25 juta",
-  "Rp 25 juta - Rp 50 juta",
-  "Rp 50 juta - Rp 100 juta",
-  "Rp 100 juta - Rp 250 juta",
-  "Di atas Rp 250 juta",
-];
 
 const monthNames = [
   "January",
@@ -132,10 +123,10 @@ function InvitationRequestContent() {
   const [shouldSearchAddress, setShouldSearchAddress] = useState(false);
   const [position, setPosition] = useState(defaultPosition);
   const [selectedDate, setSelectedDate] = useState(new Date(2026, 6, 28));
+  const [visitTime, setVisitTime] = useState("10:00");
   const [calendarMonth, setCalendarMonth] = useState(new Date(2026, 6, 1));
   const [projectCategory, setProjectCategory] = useState(projectCategories[0]);
   const [projectType, setProjectType] = useState(interiorProjectTypes[0]);
-  const [budget, setBudget] = useState(budgetRanges[2]);
   const projectTypeOptions = projectCategory === "Renovasi" ? renovationProjectTypes : interiorProjectTypes;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
@@ -244,9 +235,8 @@ function InvitationRequestContent() {
         body: JSON.stringify({
           customerName: customerName.trim(),
           phone: phone.trim(),
-          surveyDate: toApiDate(selectedDate),
+          surveyDate: toApiDateTime(selectedDate, visitTime),
           projectType: `${projectCategory} - ${projectType}`,
-          estimatedBudget: budget,
           projectAddress: address.trim(),
           latitude: Number(position.lat.toFixed(7)),
           longitude: Number(position.lng.toFixed(7)),
@@ -387,9 +377,10 @@ function InvitationRequestContent() {
                     onMonthChange={setCalendarMonth}
                     onChange={setSelectedDate}
                   />
+                  <TimeField value={visitTime} onChange={setVisitTime} />
                 </div>
 
-                <div className="grid gap-5 md:grid-cols-3">
+                <div className="grid gap-5 md:grid-cols-2">
                   <SelectField
                     icon={BriefcaseIcon}
                     label="Kategori Project"
@@ -403,13 +394,6 @@ function InvitationRequestContent() {
                     value={projectType}
                     options={projectTypeOptions}
                     onChange={setProjectType}
-                  />
-                  <SelectField
-                    icon={CurrencyDollarIcon}
-                    label="Estimasi Budget"
-                    value={budget}
-                    options={budgetRanges}
-                    onChange={setBudget}
                   />
                 </div>
 
@@ -495,15 +479,16 @@ function InvitationRequestContent() {
 
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <Button className="h-14 flex-1 text-base uppercase" disabled={isSubmitting || !invitationToken} type="submit">
-                    {isSubmitting ? "Mengirim..." : "Request Invitation"}
+                    {isSubmitting ? "Mengirim..." : "Jadwalkan Kunjungan"}
                     <ArrowRightIcon className="h-5 w-5" />
                   </Button>
                   <Button
                     className="h-14 flex-1 bg-white text-foreground shadow-sm hover:bg-muted"
                     variant="outline"
                     type="button"
+                    onClick={() => window.location.assign("/login")}
                   >
-                    Save Draft
+                    Batal
                   </Button>
                 </div>
               </form>
@@ -674,6 +659,33 @@ function SelectField({
   );
 }
 
+
+function TimeField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <label className="text-sm font-semibold" htmlFor="visit-time">
+        Waktu Kunjungan
+      </label>
+      <div className="relative mt-3">
+        <CalendarDaysIcon className="pointer-events-none absolute left-4 top-3 h-5 w-5 text-muted-foreground" />
+        <Input
+          id="visit-time"
+          className="h-12 pl-12"
+          type="time"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </div>
+    </div>
+  );
+}
+
 function DatePicker({
   value,
   calendarMonth,
@@ -804,8 +816,11 @@ function toDateKey(date: Date) {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }
 
-function toApiDate(date: Date) {
-  return date.toISOString().slice(0, 10);
+function toApiDateTime(date: Date, time: string) {
+  const [hours = "09", minutes = "00"] = time.split(":");
+  const scheduled = new Date(date);
+  scheduled.setHours(Number(hours), Number(minutes), 0, 0);
+  return scheduled.toISOString();
 }
 
 function formatApiMessage(message: string | string[] | undefined) {

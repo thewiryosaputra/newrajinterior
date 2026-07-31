@@ -5,20 +5,35 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import {
   ChartBarIcon,
+  ChatBubbleLeftRightIcon,
   CheckIcon,
   ChevronDownIcon,
   ClipboardDocumentCheckIcon,
   EnvelopeIcon,
-  EyeIcon,
   EyeSlashIcon,
   GlobeAltIcon,
   LockClosedIcon,
+  PhoneIcon,
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const API_BASE_URL = "https://api.newrajinterior.xyz/api";
+
+type LoginMode = "team" | "client";
+
+type LoginResponse = {
+  accessToken?: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    role: string;
+  };
+  message?: string | string[];
+};
 
 const benefits = [
   {
@@ -33,88 +48,93 @@ const benefits = [
   },
   {
     title: "Aman & Terpercaya",
-    body: "Data terlindungi dengan sistem keamanan terbaik",
+    body: "Akses team dan client dipisahkan sesuai kebutuhan",
     icon: ShieldCheckIcon,
   },
 ];
 
-type LoginResponse = {
-  accessToken: string | null;
-  message?: string;
-  verificationRequired?: {
-    email: boolean;
-    whatsapp: boolean;
-  };
-  user?: {
-    id: string;
-    name: string;
-    email: string;
-    phone: string;
-    role: string;
-    emailVerified: boolean;
-    whatsappVerified: boolean;
-  };
-};
-
 export default function LoginPage() {
   const router = useRouter();
-  const [account, setAccount] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [mode, setMode] = useState<LoginMode>("team");
+  const [teamEmail, setTeamEmail] = useState("");
+  const [teamPassword, setTeamPassword] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [messageType, setMessageType] = useState<"error" | "warning" | "success">("error");
+  const [status, setStatus] = useState<"success" | "error">("success");
 
-  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+  async function handleTeamLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage(null);
 
-    if (!account.trim() || !password) {
-      setMessageType("error");
-      setMessage("Email/no. telepon dan password wajib diisi.");
+    if (!teamEmail.trim() || !teamPassword) {
+      setStatus("error");
+      setMessage("Email dan password team wajib diisi.");
       return;
     }
 
-    setIsLoading(true);
+    setIsSubmitting(true);
     try {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ account: account.trim(), password }),
+        body: JSON.stringify({ account: teamEmail.trim(), password: teamPassword }),
       });
-      const data = (await response.json().catch(() => ({}))) as Partial<LoginResponse> & {
-        message?: string | string[];
-      };
+      const data = (await response.json().catch(() => ({}))) as LoginResponse;
 
-      if (!response.ok) {
-        setMessageType("error");
-        setMessage(formatApiMessage(data.message) || "Login gagal. Periksa kembali akun Anda.");
-        return;
-      }
-
-      if (!data.accessToken) {
-        const needsEmail = data.verificationRequired?.email;
-        const needsWhatsapp = data.verificationRequired?.whatsapp;
-        const channels = [needsEmail ? "email" : null, needsWhatsapp ? "WhatsApp" : null]
-          .filter(Boolean)
-          .join(" dan ");
-        setMessageType("warning");
-        setMessage(data.message || `Akun Anda perlu verifikasi ${channels} sebelum masuk.`);
+      if (!response.ok || !data.accessToken) {
+        setStatus("error");
+        setMessage(formatApiMessage(data.message) || "Login team gagal. Periksa email dan password.");
         return;
       }
 
       window.localStorage.setItem("newraj_access_token", data.accessToken);
       if (data.user) {
         window.localStorage.setItem("newraj_user", JSON.stringify(data.user));
+        window.localStorage.setItem("newraj_user_role", data.user.role);
       }
-      setMessageType("success");
-      setMessage("Login berhasil. Membuka dashboard...");
-      router.push("/dashboard");
+      router.replace("/dashboard");
     } catch (error) {
-      setMessageType("error");
-      setMessage("Tidak bisa terhubung ke server API. Coba lagi sebentar.");
+      setStatus("error");
+      setMessage("Tidak bisa terhubung ke server login.");
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleClientLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage(null);
+
+    if (!clientPhone.trim()) {
+      setStatus("error");
+      setMessage("Nomor WhatsApp wajib diisi.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: clientPhone.trim() }),
+      });
+      const data = (await response.json().catch(() => ({}))) as LoginResponse;
+
+      if (!response.ok) {
+        setStatus("error");
+        setMessage(formatApiMessage(data.message) || "OTP WhatsApp gagal dikirim.");
+        return;
+      }
+
+      window.localStorage.setItem("newraj_pending_client_phone", clientPhone.trim());
+      setStatus("success");
+      setMessage("Kode OTP sudah dikirim ke WhatsApp. Tahap berikutnya adalah verifikasi OTP untuk masuk sebagai client.");
+    } catch (error) {
+      setStatus("error");
+      setMessage("Tidak bisa mengirim OTP WhatsApp sekarang.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -147,8 +167,7 @@ export default function LoginPage() {
             <div className="max-w-md">
               <h1 className="font-display text-4xl font-bold">Welcome Back!</h1>
               <p className="mt-5 text-lg leading-8 text-white/82">
-                Sign in to continue managing your projects and monitor progress
-                seamlessly.
+                Team masuk dengan email dan password. Client masuk memakai nomor WhatsApp dan kode OTP.
               </p>
             </div>
 
@@ -159,9 +178,7 @@ export default function LoginPage() {
                     <item.icon className="h-6 w-6" />
                   </div>
                   <p className="font-semibold">{item.title}</p>
-                  <p className="mt-2 text-sm leading-6 text-white/72">
-                    {item.body}
-                  </p>
+                  <p className="mt-2 text-sm leading-6 text-white/72">{item.body}</p>
                 </div>
               ))}
             </div>
@@ -189,137 +206,104 @@ export default function LoginPage() {
                 />
               </div>
               <h2 className="font-display text-4xl font-bold">Login</h2>
-              <p className="mt-3 text-base text-muted-foreground">
-                Masuk untuk mengakses akun Anda
-              </p>
+              <p className="mt-3 text-base text-muted-foreground">Pilih tipe akun untuk masuk ke New Raj CRM.</p>
 
-              <form className="mt-9 space-y-6" onSubmit={handleLogin}>
-                <div>
-                  <label className="text-sm font-semibold" htmlFor="account">
-                    Email atau No. Telepon
-                  </label>
-                  <div className="relative mt-3">
-                    <EnvelopeIcon className="absolute left-4 top-3 h-5 w-5 text-muted-foreground" />
-                    <Input
-                      id="account"
-                      autoComplete="username"
-                      className="h-12 pl-12"
-                      placeholder="Masukkan email atau nomor telepon"
-                      value={account}
-                      onChange={(event) => setAccount(event.target.value)}
-                    />
+              <div className="mt-8 grid grid-cols-2 rounded-lg border bg-[#faf9f5] p-1">
+                <button
+                  className={["h-11 rounded-md text-sm font-semibold transition-colors", mode === "team" ? "bg-newraj-gold text-white shadow-sm" : "text-newraj-charcoal hover:bg-white"].join(" ")}
+                  onClick={() => {
+                    setMode("team");
+                    setMessage(null);
+                  }}
+                  type="button"
+                >
+                  Login Team
+                </button>
+                <button
+                  className={["h-11 rounded-md text-sm font-semibold transition-colors", mode === "client" ? "bg-newraj-gold text-white shadow-sm" : "text-newraj-charcoal hover:bg-white"].join(" ")}
+                  onClick={() => {
+                    setMode("client");
+                    setMessage(null);
+                  }}
+                  type="button"
+                >
+                  Login Client
+                </button>
+              </div>
+
+              {mode === "team" ? (
+                <form className="mt-8 space-y-6" onSubmit={handleTeamLogin}>
+                  <div>
+                    <label className="text-sm font-semibold" htmlFor="team-email">Email Team</label>
+                    <div className="relative mt-3">
+                      <EnvelopeIcon className="absolute left-4 top-3 h-5 w-5 text-muted-foreground" />
+                      <Input id="team-email" className="h-12 pl-12" placeholder="Masukkan email team" value={teamEmail} onChange={(event) => setTeamEmail(event.target.value)} />
+                    </div>
                   </div>
-                </div>
 
-                <div>
-                  <label className="text-sm font-semibold" htmlFor="password">
-                    Password
-                  </label>
-                  <div className="relative mt-3">
-                    <LockClosedIcon className="absolute left-4 top-3 h-5 w-5 text-muted-foreground" />
-                    <Input
-                      id="password"
-                      autoComplete="current-password"
-                      type={showPassword ? "text" : "password"}
-                      className="h-12 pl-12 pr-12"
-                      placeholder="Masukkan password"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                    />
-                    <button
-                      className="absolute right-4 top-3 text-muted-foreground"
-                      onClick={() => setShowPassword((current) => !current)}
-                      type="button"
-                      aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
-                    >
-                      {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
-                    </button>
+                  <div>
+                    <label className="text-sm font-semibold" htmlFor="team-password">Password</label>
+                    <div className="relative mt-3">
+                      <LockClosedIcon className="absolute left-4 top-3 h-5 w-5 text-muted-foreground" />
+                      <Input id="team-password" type="password" className="h-12 pl-12 pr-12" placeholder="Masukkan password" value={teamPassword} onChange={(event) => setTeamPassword(event.target.value)} />
+                      <EyeSlashIcon className="absolute right-4 top-3 h-5 w-5 text-muted-foreground" />
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex items-center justify-between gap-4 text-sm">
-                  <label className="flex items-center gap-3">
-                    <span className="flex h-5 w-5 items-center justify-center rounded bg-newraj-gold text-white">
-                      <CheckIcon className="h-4 w-4" />
-                    </span>
-                    Ingat saya
-                  </label>
-                  <a
-                    className="font-medium text-[#b87900] underline underline-offset-4"
-                    href="/forgot-password"
-                  >
-                    Lupa Password?
-                  </a>
-                </div>
-
-                {message ? (
-                  <div
-                    className={[
-                      "rounded-lg border px-4 py-3 text-sm leading-6",
-                      messageType === "success"
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                        : messageType === "warning"
-                          ? "border-amber-200 bg-amber-50 text-amber-800"
-                          : "border-red-200 bg-red-50 text-red-700",
-                    ].join(" ")}
-                  >
-                    {message}
+                  <div className="flex items-center justify-between gap-4 text-sm">
+                    <label className="flex items-center gap-3">
+                      <span className="flex h-5 w-5 items-center justify-center rounded bg-newraj-gold text-white">
+                        <CheckIcon className="h-4 w-4" />
+                      </span>
+                      Ingat saya
+                    </label>
+                    <a className="font-medium text-[#b87900] underline underline-offset-4" href="/forgot-password">Lupa Password?</a>
                   </div>
-                ) : null}
 
-                <Button className="h-12 w-full text-base" disabled={isLoading} type="submit">
-                  {isLoading ? "Memproses..." : "Login"}
-                </Button>
+                  {message ? <StatusMessage status={status} message={message} /> : null}
 
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <div className="h-px flex-1 bg-border" />
-                  atau masuk dengan
-                  <div className="h-px flex-1 bg-border" />
-                </div>
-
-                <div className="space-y-3">
-                  <Button
-                    className="h-12 w-full bg-white text-foreground shadow-sm hover:bg-muted"
-                    variant="outline"
-                    type="button"
-                  >
-                    <span className="text-lg font-bold text-[#4285f4]">G</span>
-                    Masuk dengan Google
+                  <Button className="h-12 w-full text-base" disabled={isSubmitting} type="submit">
+                    {isSubmitting ? "Memproses..." : "Login Team"}
                   </Button>
-                  <Button
-                    className="h-12 w-full bg-white text-foreground shadow-sm hover:bg-muted"
-                    variant="outline"
-                    type="button"
-                  >
-                    <span className="grid h-5 w-5 grid-cols-2 gap-0.5">
-                      <i className="bg-[#f35325]" />
-                      <i className="bg-[#81bc06]" />
-                      <i className="bg-[#05a6f0]" />
-                      <i className="bg-[#ffba08]" />
-                    </span>
-                    Masuk dengan Microsoft
-                  </Button>
-                </div>
+                </form>
+              ) : (
+                <form className="mt-8 space-y-6" onSubmit={handleClientLogin}>
+                  <div>
+                    <label className="text-sm font-semibold" htmlFor="client-phone">Nomor WhatsApp</label>
+                    <div className="relative mt-3">
+                      <PhoneIcon className="absolute left-4 top-3 h-5 w-5 text-muted-foreground" />
+                      <Input id="client-phone" className="h-12 pl-12" inputMode="tel" placeholder="Contoh: 081234567890" value={clientPhone} onChange={(event) => setClientPhone(event.target.value)} />
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                      Client cukup memasukkan nomor WhatsApp. Sistem akan mengirim kode OTP untuk login.
+                    </p>
+                  </div>
 
-                <p className="text-center text-sm text-muted-foreground">
-                  Belum punya akun?{" "}
-                  <a
-                    className="font-medium text-[#b87900] underline underline-offset-4"
-                    href="/invitation/request"
-                  >
-                    Daftar sekarang
-                  </a>
-                </p>
-              </form>
+                  {message ? <StatusMessage status={status} message={message} /> : null}
+
+                  <Button className="h-12 w-full text-base" disabled={isSubmitting} type="submit">
+                    <ChatBubbleLeftRightIcon className="h-5 w-5" />
+                    {isSubmitting ? "Mengirim OTP..." : "Kirim OTP WhatsApp"}
+                  </Button>
+                </form>
+              )}
             </div>
           </div>
 
           <p className="pb-4 text-center text-sm text-muted-foreground">
-            © 2026 New Raj Interior. All rights reserved.
+            (c) 2026 New Raj Interior. All rights reserved.
           </p>
         </section>
       </div>
     </main>
+  );
+}
+
+function StatusMessage({ status, message }: { status: "success" | "error"; message: string }) {
+  return (
+    <div className={["rounded-lg border px-4 py-3 text-sm font-medium", status === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"].join(" ")}>
+      {message}
+    </div>
   );
 }
 

@@ -17,8 +17,8 @@ export class InvitationService {
 
   async createInvitationLink(dto: CreateInvitationLinkDto, authHeader?: string) {
     const admin = await this.requireAdmin(authHeader);
-    const email = dto.email.trim().toLowerCase();
     const phone = normalizePhone(dto.phone);
+    const email = internalEmailFromPhone(phone);
     const token = randomUUID().replace(/-/g, "");
     const appUrl = process.env.APP_URL ?? "https://crm.newrajinterior.xyz";
     const link = `${appUrl}/invitation/request?token=${token}`;
@@ -30,7 +30,7 @@ export class InvitationService {
       [dto.customerName.trim(), email, phone, hashToken(token), admin.sub],
     );
 
-    await this.verification.sendInvitationLink({ customerName: dto.customerName.trim(), email, phone, link });
+    await this.verification.sendInvitationLink({ customerName: dto.customerName.trim(), phone, link });
 
     return {
       invitation: {
@@ -42,7 +42,7 @@ export class InvitationService {
         createdAt: result.rows[0].created_at,
       },
       link,
-      message: "Link request invitation sudah dikirim lewat email dan WhatsApp.",
+      message: "Link request invitation sudah dikirim lewat WhatsApp.",
     };
   }
 
@@ -83,9 +83,9 @@ export class InvitationService {
     return { deleted: true, message: "Invitation link sudah dihapus dan tidak aktif lagi." };
   }
   async createRequest(dto: CreateInvitationRequestDto) {
-    const email = dto.email.trim().toLowerCase();
     const phone = normalizePhone(dto.phone);
-    const invitationLink = await this.consumeInvitationLink(dto.token, email, phone);
+    const invitationLink = await this.consumeInvitationLink(dto.token, phone);
+    const email = invitationLink.email || internalEmailFromPhone(phone);
 
     const result = await this.db.query(
       `INSERT INTO invitation_requests (
@@ -110,13 +110,12 @@ export class InvitationService {
 
     await this.db.query("UPDATE invitation_links SET used_at = now(), invitation_request_id = $1 WHERE id = $2", [result.rows[0].id, invitationLink.id]);
 
-    await this.verification.sendEmailVerification(email);
     await this.verification.sendWhatsappOtp(phone);
 
     return {
       invitationRequest: mapInvitation(result.rows[0]),
-      verificationRequired: { email: true, whatsapp: true },
-      message: "Request invitation tersimpan. Silakan verifikasi email dan WhatsApp, lalu tunggu approval admin.",
+      verificationRequired: { email: false, whatsapp: true },
+      message: "Request invitation tersimpan. Silakan verifikasi OTP WhatsApp, lalu tunggu approval admin.",
     };
   }
 
@@ -162,8 +161,8 @@ export class InvitationService {
     );
     const row = request.rows[0];
     if (!row) throw new NotFoundException("Invitation request tidak ditemukan.");
-    if (!row.email_verified_at || !row.whatsapp_verified_at) {
-      throw new BadRequestException("Request wajib verifikasi email dan WhatsApp sebelum approval.");
+    if (!row.whatsapp_verified_at) {
+      throw new BadRequestException("Request wajib verifikasi WhatsApp sebelum approval.");
     }
 
     const tempHash = await bcrypt.hash(randomUUID(), 12);
@@ -177,7 +176,7 @@ export class InvitationService {
         whatsapp_verified_at = COALESCE(users.whatsapp_verified_at, EXCLUDED.whatsapp_verified_at),
         updated_at = now()
        RETURNING id`,
-      [row.customer_name, row.email, row.phone, tempHash, row.email_verified_at, row.whatsapp_verified_at],
+      [row.customer_name, row.email || internalEmailFromPhone(row.phone), row.phone, tempHash, row.email_verified_at ?? row.whatsapp_verified_at, row.whatsapp_verified_at],
     );
 
     const userId = userResult.rows[0].id;
@@ -208,7 +207,7 @@ export class InvitationService {
     return this.verification.verifyWhatsapp(dto.phone, dto.otp);
   }
 
-  private async consumeInvitationLink(token: string, email: string, phone: string) {
+  private async consumeInvitationLink(token: string, phone: string) {
     const result = await this.db.query<{ id: string; customer_name: string; email: string; phone: string }>(
       `SELECT id, customer_name, email, phone
        FROM invitation_links
@@ -219,8 +218,8 @@ export class InvitationService {
     );
     const row = result.rows[0];
     if (!row) throw new BadRequestException("Link request invitation tidak valid, sudah digunakan, atau sudah kedaluwarsa.");
-    if (row.email !== email || row.phone !== phone) {
-      throw new BadRequestException("Email atau nomor WhatsApp tidak sesuai dengan invitation link.");
+    if (row.phone !== phone) {
+      throw new BadRequestException("Nomor WhatsApp tidak sesuai dengan invitation link.");
     }
     return row;
   }
@@ -254,4 +253,7 @@ function mapInvitation(row: Record<string, unknown>) {
     userId: row.user_id,
     createdAt: row.created_at,
   };
+}
+function internalEmailFromPhone(phone: string) {
+  return `${phone.replace(/[^0-9]/g, "")}@wa.newraj.local`;
 }

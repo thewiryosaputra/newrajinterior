@@ -1,12 +1,9 @@
-import { IsDateString, IsEmail, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
+import { IsDateString, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
 
 export class CreateInvitationLinkDto {
   @IsString()
   @IsNotEmpty()
   customerName!: string;
-
-  @IsEmail()
-  email!: string;
 
   @IsString()
   @IsNotEmpty()
@@ -21,9 +18,6 @@ export class CreateInvitationRequestDto {
   @IsString()
   @IsNotEmpty()
   phone!: string;
-
-  @IsEmail()
-  email!: string;
 
   @IsDateString()
   surveyDate!: string;

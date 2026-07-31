@@ -13,7 +13,6 @@ import {
   ChevronRightIcon,
   ClipboardDocumentCheckIcon,
   CurrencyDollarIcon,
-  EnvelopeIcon,
   GlobeAltIcon,
   MapIcon,
   MapPinIcon,
@@ -125,7 +124,6 @@ function InvitationRequestContent() {
   const invitationToken = searchParams.get("token") ?? "";
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
   const [address, setAddress] = useState("");
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
@@ -228,13 +226,13 @@ function InvitationRequestContent() {
 
     if (!invitationToken) {
       setSubmitStatus("error");
-      setSubmitMessage("Link invitation tidak valid atau tidak ditemukan. Silakan gunakan link dari email atau WhatsApp.");
+      setSubmitMessage("Link invitation tidak valid atau tidak ditemukan. Silakan gunakan link dari WhatsApp terbaru.");
       return;
     }
 
-    if (!customerName.trim() || !phone.trim() || !email.trim() || !address.trim()) {
+    if (!customerName.trim() || !phone.trim() || !address.trim()) {
       setSubmitStatus("error");
-      setSubmitMessage("Nama customer, nomor telepon, email, dan alamat project wajib diisi.");
+      setSubmitMessage("Nama customer, nomor telepon, dan alamat project wajib diisi.");
       return;
     }
 
@@ -246,7 +244,6 @@ function InvitationRequestContent() {
         body: JSON.stringify({
           customerName: customerName.trim(),
           phone: phone.trim(),
-          email: email.trim(),
           surveyDate: toApiDate(selectedDate),
           projectType: `${projectCategory} - ${projectType}`,
           estimatedBudget: budget,
@@ -268,7 +265,7 @@ function InvitationRequestContent() {
       setSubmitStatus("success");
       setSubmitMessage(
         formatApiMessage(data.message) ||
-          "Request invitation berhasil disimpan. Email verifikasi dan OTP WhatsApp sudah dikirim ke customer.",
+          "Request invitation berhasil disimpan. OTP WhatsApp sudah dikirim ke customer.",
       );
     } catch (error) {
       setSubmitStatus("error");
@@ -362,7 +359,7 @@ function InvitationRequestContent() {
 
               {!invitationToken ? (
                 <div className="mt-10 rounded-lg border border-red-200 bg-red-50 p-5 text-sm font-medium leading-7 text-red-700">
-                  Link invitation tidak valid atau belum tersedia. Halaman ini hanya bisa dibuka dari link yang dikirim oleh admin melalui email atau WhatsApp.
+                  Link invitation tidak valid atau belum tersedia. Halaman ini hanya bisa dibuka dari link WhatsApp yang dikirim oleh admin.
                 </div>
               ) : null}
 
@@ -383,15 +380,6 @@ function InvitationRequestContent() {
                     icon={PhoneIcon}
                     value={phone}
                     onChange={setPhone}
-                  />
-                  <Field
-                    id="email"
-                    label="Email"
-                    placeholder="customer@email.com"
-                    icon={EnvelopeIcon}
-                    type="email"
-                    value={email}
-                    onChange={setEmail}
                   />
                   <DatePicker
                     value={selectedDate}

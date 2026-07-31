@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { CheckCircleIcon, EnvelopeIcon, PaperAirplaneIcon, PhoneIcon, TrashIcon, UserIcon } from "@heroicons/react/24/outline";
+import { CheckCircleIcon, PaperAirplaneIcon, PhoneIcon, TrashIcon, UserIcon } from "@heroicons/react/24/outline";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,13 +91,12 @@ export function CreateInvitationPanel() {
         },
         body: JSON.stringify({
           customerName: form.get("customerName"),
-          email: form.get("email"),
           phone: form.get("phone"),
         }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.message ?? "Gagal membuat invitation link.");
-      setMessage("Invitation link sudah dikirim ke email dan WhatsApp customer.");
+      setMessage("Invitation link sudah dikirim ke WhatsApp customer.");
       formElement.reset();
       await refreshAll();
     } catch (err) {
@@ -119,7 +118,7 @@ export function CreateInvitationPanel() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.message ?? "Gagal approve invitation request.");
-      setMessage(data.message ?? "Request disetujui. Link setup password sudah dikirim lewat email dan WhatsApp.");
+      setMessage(data.message ?? "Request disetujui. Link lanjutan sudah dikirim lewat WhatsApp.");
       await refreshAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal approve invitation request.");
@@ -154,17 +153,13 @@ export function CreateInvitationPanel() {
       <div className="rounded-lg border bg-white p-6 shadow-sm">
         <div>
           <h2 className="font-display text-xl font-semibold">Create Invitation</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Admin input nama, email, dan WhatsApp. Sistem mengirim link request invitation sekali pakai.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Admin cukup input nama customer dan nomor WhatsApp. Sistem mengirim link request invitation sekali pakai lewat WA.</p>
         </div>
 
-        <form className="mt-5 grid gap-3 lg:grid-cols-[1fr_1fr_1fr_auto]" onSubmit={createInvitation}>
+        <form className="mt-5 grid gap-3 lg:grid-cols-[1fr_1fr_auto]" onSubmit={createInvitation}>
           <div className="relative">
             <UserIcon className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
             <Input name="customerName" className="h-11 pl-10" placeholder="Nama customer" required />
-          </div>
-          <div className="relative">
-            <EnvelopeIcon className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-            <Input name="email" type="email" className="h-11 pl-10" placeholder="Email customer" required />
           </div>
           <div className="relative">
             <PhoneIcon className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
@@ -184,7 +179,7 @@ export function CreateInvitationPanel() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <h3 className="font-display text-lg font-semibold">Approval Request</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Customer yang sudah verifikasi email dan WhatsApp bisa di-approve untuk menerima link create password.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Customer yang sudah verifikasi WhatsApp bisa di-approve untuk menerima link lanjutan lewat WA.</p>
           </div>
           <Button type="button" variant="outline" onClick={() => void refreshAll()}>Refresh</Button>
         </div>
@@ -205,14 +200,11 @@ export function CreateInvitationPanel() {
             <tbody className="divide-y bg-white">
               {requests.length ? requests.map((item) => {
                 const isApproved = item.status === "approved" || Boolean(item.approvedAt);
-                const canApprove = item.emailVerified && item.whatsappVerified && !isApproved;
+                const canApprove = item.whatsappVerified && !isApproved;
                 return (
                   <tr key={item.id} className="hover:bg-[#fffaf0]">
                     <td className="px-4 py-3 font-semibold">{item.customerName}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      <div>{item.email}</div>
-                      <div>{item.phone}</div>
-                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{item.phone}</td>
                     <td className="px-4 py-3">
                       <div className="font-medium">{item.projectType}</div>
                       <div className="text-xs text-muted-foreground">{item.estimatedBudget}</div>
@@ -221,7 +213,7 @@ export function CreateInvitationPanel() {
                     <td className="px-4 py-3 text-muted-foreground">{formatDate(item.surveyDate)}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
-                        <VerificationBadge label="Email" verified={item.emailVerified} />
+
                         <VerificationBadge label="WA" verified={item.whatsappVerified} />
                       </div>
                     </td>
@@ -260,7 +252,6 @@ export function CreateInvitationPanel() {
             <thead className="bg-[#faf9f5] text-xs text-newraj-charcoal">
               <tr>
                 <th className="px-4 py-3 font-semibold">Customer</th>
-                <th className="px-4 py-3 font-semibold">Email</th>
                 <th className="px-4 py-3 font-semibold">WhatsApp</th>
                 <th className="px-4 py-3 font-semibold">Status</th>
                 <th className="px-4 py-3 font-semibold">Expired</th>
@@ -271,7 +262,6 @@ export function CreateInvitationPanel() {
               {links.length ? links.map((item) => (
                 <tr key={item.id} className="hover:bg-[#fffaf0]">
                   <td className="px-4 py-3 font-semibold">{item.customerName}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{item.email}</td>
                   <td className="px-4 py-3 text-muted-foreground">{item.phone}</td>
                   <td className="px-4 py-3"><InvitationLinkBadge status={item.status} /></td>
                   <td className="px-4 py-3 text-muted-foreground">{formatDate(item.expiresAt)}</td>
@@ -290,7 +280,7 @@ export function CreateInvitationPanel() {
                 </tr>
               )) : (
                 <tr>
-                  <td className="px-4 py-5 text-center text-muted-foreground" colSpan={6}>Belum ada invitation link.</td>
+                  <td className="px-4 py-5 text-center text-muted-foreground" colSpan={5}>Belum ada invitation link.</td>
                 </tr>
               )}
             </tbody>

@@ -179,7 +179,7 @@ export function CreateInvitationPanel() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <h3 className="font-display text-lg font-semibold">Approval Request</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Customer yang sudah verifikasi WhatsApp bisa di-approve untuk menerima link lanjutan lewat WA.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Customer yang sudah submit detail invitation akan masuk ke approval request dan bisa di-approve admin.</p>
           </div>
           <Button type="button" variant="outline" onClick={() => void refreshAll()}>Refresh</Button>
         </div>
@@ -192,7 +192,7 @@ export function CreateInvitationPanel() {
                 <th className="px-4 py-3 font-semibold">Kontak</th>
                 <th className="px-4 py-3 font-semibold">Project</th>
                 <th className="px-4 py-3 font-semibold">Survey</th>
-                <th className="px-4 py-3 font-semibold">Verifikasi</th>
+                <th className="px-4 py-3 font-semibold">Approval</th>
                 <th className="px-4 py-3 font-semibold">Status</th>
                 <th className="px-4 py-3 font-semibold">Aksi</th>
               </tr>
@@ -200,7 +200,7 @@ export function CreateInvitationPanel() {
             <tbody className="divide-y bg-white">
               {requests.length ? requests.map((item) => {
                 const isApproved = item.status === "approved" || Boolean(item.approvedAt);
-                const canApprove = item.whatsappVerified && !isApproved;
+                const canApprove = item.status === "pending_approval" && !isApproved;
                 return (
                   <tr key={item.id} className="hover:bg-[#fffaf0]">
                     <td className="px-4 py-3 font-semibold">{item.customerName}</td>
@@ -214,7 +214,7 @@ export function CreateInvitationPanel() {
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
 
-                        <VerificationBadge label="WA" verified={item.whatsappVerified} />
+                        <VerificationBadge label="Request" verified={item.status === "pending_approval" || isApproved} />
                       </div>
                     </td>
                     <td className="px-4 py-3"><RequestStatusBadge status={item.status} approvedAt={item.approvedAt} /></td>

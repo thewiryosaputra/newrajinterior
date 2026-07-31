@@ -200,7 +200,8 @@ export function CreateInvitationPanel() {
             <tbody className="divide-y bg-white">
               {requests.length ? requests.map((item) => {
                 const isApproved = item.status === "approved" || Boolean(item.approvedAt);
-                const canApprove = item.status === "pending_approval" && !isApproved;
+                const isApprovalReady = item.status === "pending_approval" || item.status === "pending_verification";
+                const canApprove = isApprovalReady && !isApproved;
                 return (
                   <tr key={item.id} className="hover:bg-[#fffaf0]">
                     <td className="px-4 py-3 font-semibold">{item.customerName}</td>
@@ -214,7 +215,7 @@ export function CreateInvitationPanel() {
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
 
-                        <VerificationBadge label="Request" verified={item.status === "pending_approval" || isApproved} />
+                        <VerificationBadge label="Request" verified={isApprovalReady || isApproved} />
                       </div>
                     </td>
                     <td className="px-4 py-3"><RequestStatusBadge status={item.status} approvedAt={item.approvedAt} /></td>
@@ -304,7 +305,7 @@ function VerificationBadge({ label, verified }: { label: string; verified: boole
 
 function RequestStatusBadge({ status, approvedAt }: { status: string; approvedAt: string | null }) {
   if (status === "approved" || approvedAt) return <Badge variant="success">Approved</Badge>;
-  if (status === "pending_approval") return <Badge variant="warning">Waiting Approval</Badge>;
+  if (status === "pending_approval" || status === "pending_verification") return <Badge variant="warning">Waiting Approval</Badge>;
   return <Badge variant="muted">Verification Pending</Badge>;
 }
 

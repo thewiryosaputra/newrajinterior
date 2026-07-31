@@ -27,8 +27,8 @@ export class CreateInvitationRequestDto {
   projectType!: string;
 
   @IsString()
-  @IsNotEmpty()
-  estimatedBudget!: string;
+  @IsOptional()
+  estimatedBudget?: string;
 
   @IsString()
   @IsNotEmpty()

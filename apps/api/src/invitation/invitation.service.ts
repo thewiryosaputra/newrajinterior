@@ -100,7 +100,7 @@ export class InvitationService {
         email,
         dto.surveyDate,
         dto.projectType,
-        dto.estimatedBudget,
+        dto.estimatedBudget ?? "",
         dto.projectAddress,
         dto.latitude,
         dto.longitude,

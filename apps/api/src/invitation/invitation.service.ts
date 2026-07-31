@@ -177,9 +177,10 @@ export class InvitationService {
     const userResult = await this.db.query<{ id: string }>(
       `INSERT INTO users (name, email, phone, password_hash, role, email_verified_at, whatsapp_verified_at)
        VALUES ($1, $2, $3, $4, 'customer', $5, $6)
-       ON CONFLICT (email) DO UPDATE SET
+       ON CONFLICT (phone) DO UPDATE SET
         name = EXCLUDED.name,
-        phone = EXCLUDED.phone,
+        email = COALESCE(users.email, EXCLUDED.email),
+        role = 'customer',
         email_verified_at = COALESCE(users.email_verified_at, EXCLUDED.email_verified_at),
         whatsapp_verified_at = COALESCE(users.whatsapp_verified_at, EXCLUDED.whatsapp_verified_at),
         updated_at = now()

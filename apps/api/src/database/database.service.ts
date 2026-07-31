@@ -24,6 +24,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     await this.migrate();
     await this.ensureRuntimeSchema();
     await this.seedAdminUser();
+    await this.seedSurveyorUser();
     this.logger.log("Database connection ready");
   }
 
@@ -121,6 +122,22 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
        ON CONFLICT (email) DO UPDATE SET
         password_hash = EXCLUDED.password_hash,
         role = 'admin',
+        email_verified_at = COALESCE(users.email_verified_at, now()),
+        whatsapp_verified_at = COALESCE(users.whatsapp_verified_at, now()),
+        updated_at = now()`,
+      [passwordHash],
+    );
+  }
+
+  private async seedSurveyorUser() {
+    const password = this.config.get<string>("SURVEYOR_PASSWORD", "newrajinterior321");
+    const passwordHash = await bcrypt.hash(password, 12);
+    await this.query(
+      `INSERT INTO users (name, email, phone, password_hash, role, email_verified_at, whatsapp_verified_at)
+       VALUES ('Surveyor', 'surveyor', 'surveyor', $1, 'surveyor', now(), now())
+       ON CONFLICT (email) DO UPDATE SET
+        password_hash = EXCLUDED.password_hash,
+        role = 'surveyor',
         email_verified_at = COALESCE(users.email_verified_at, now()),
         whatsapp_verified_at = COALESCE(users.whatsapp_verified_at, now()),
         updated_at = now()`,

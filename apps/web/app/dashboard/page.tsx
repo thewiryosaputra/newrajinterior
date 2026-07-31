@@ -40,6 +40,9 @@ type InvitationRequest = {
   status: string;
   emailVerified: boolean;
   whatsappVerified: boolean;
+  approvedAt?: string | null;
+  userId?: string | null;
+  notes?: string | null;
   createdAt: string;
 };
 
@@ -89,7 +92,7 @@ const paymentBreakdown = [
 export default function DashboardPage() {
   const router = useRouter();
   const [authChecked, setAuthChecked] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{ name?: string; email?: string; role?: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id?: string; name?: string; email?: string; phone?: string; role?: string } | null>(null);
   const [invitations, setInvitations] = useState<InvitationRequest[]>([]);
   const [isLoadingInvitations, setIsLoadingInvitations] = useState(true);
   const [invitationError, setInvitationError] = useState<string | null>(null);
@@ -111,7 +114,14 @@ export default function DashboardPage() {
 
     async function loadInvitations() {
       try {
-        const response = await fetch(`${API_BASE_URL}/invitation-requests`, { cache: "no-store" });
+        const token = window.localStorage.getItem("newraj_access_token");
+        const storedUser = window.localStorage.getItem("newraj_user");
+        const user = storedUser ? safeParseUser(storedUser) : null;
+        const endpoint = user?.role === "customer" ? "invitation-requests/my" : "invitation-requests";
+        const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
+          cache: "no-store",
+          headers: user?.role === "customer" ? { Authorization: `Bearer ${token ?? ""}` } : undefined,
+        });
         const payload = (await response.json().catch(() => ({}))) as { data?: InvitationRequest[]; message?: string | string[] };
 
         if (!response.ok) {
@@ -131,13 +141,13 @@ export default function DashboardPage() {
   }, [authChecked]);
 
   const verifiedCount = useMemo(
-    () => invitations.filter((item) => item.emailVerified && item.whatsappVerified).length,
+    () => invitations.filter((item) => item.whatsappVerified).length,
     [invitations],
   );
   const pendingCount = Math.max(invitations.length - verifiedCount, 0);
   const liveStats = [
     { label: "Invitation Request", value: String(invitations.length), sub: "Data dari backend", icon: ClipboardDocumentCheckIcon, dark: true },
-    { label: "Menunggu Verifikasi", value: String(pendingCount), sub: "Email/WhatsApp pending", icon: ClockIcon },
+    { label: "Menunggu Verifikasi", value: String(pendingCount), sub: "WhatsApp pending", icon: ClockIcon },
     { label: "Terverifikasi", value: String(verifiedCount), sub: "Siap dibuat project", icon: CheckBadgeIcon },
     { label: "Project Aktif", value: "12", sub: "Data dummy sementara", icon: BriefcaseIcon },
   ];
@@ -157,6 +167,34 @@ export default function DashboardPage() {
     );
   }
 
+  if (currentUser?.role === "customer") {
+    return (
+      <main className="min-h-screen bg-[#fbfaf7] text-newraj-ink">
+        <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
+          <DashboardSidebar activeItem="Dashboard" user={currentUser} onLogout={handleLogout} />
+          <section className="min-w-0 px-4 py-6 sm:px-6 xl:px-8">
+            <header className="flex flex-col gap-3 border-b pb-5">
+              <h1 className="font-display text-4xl font-bold">Dashboard Client</h1>
+              <p className="text-sm text-newraj-charcoal">Selamat datang, {currentUser.name || "Customer"}. Berikut detail invitation yang sudah Anda isi.</p>
+            </header>
+            <div className="mt-6">
+              {isLoadingInvitations ? (
+                <p className="rounded-lg border bg-white p-5 text-sm text-muted-foreground">Memuat detail invitation...</p>
+              ) : invitationError ? (
+                <p className="rounded-lg border border-red-200 bg-red-50 p-5 text-sm text-red-700">{invitationError}</p>
+              ) : invitations.length === 0 ? (
+                <p className="rounded-lg border bg-white p-5 text-sm text-muted-foreground">Belum ada detail invitation untuk akun ini.</p>
+              ) : (
+                <div className="grid gap-5">
+                  {invitations.map((item) => <ClientInvitationDetail key={item.id} item={item} />)}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      </main>
+    );
+  }
   return (
     <main className="min-h-screen bg-[#fbfaf7] text-newraj-ink">
       <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
@@ -455,16 +493,57 @@ function ProjectRow({
   );
 }
 
+
+function ClientInvitationDetail({ item }: { item: InvitationRequest }) {
+  return (
+    <section className="rounded-lg border bg-white p-6 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="font-display text-2xl font-semibold">{item.customerName}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{item.projectType}</p>
+        </div>
+        <InvitationStatusBadge item={item} />
+      </div>
+      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <DetailBox label="Nomor WhatsApp" value={item.phone} />
+        <DetailBox label="Jadwal Survey" value={formatDate(item.surveyDate)} />
+        <DetailBox label="Estimasi Budget" value={item.estimatedBudget} />
+        <DetailBox label="Status" value={item.status === "approved" ? "Approved" : item.status} />
+        <DetailBox label="Latitude" value={String(item.latitude)} />
+        <DetailBox label="Longitude" value={String(item.longitude)} />
+      </div>
+      <div className="mt-5 rounded-lg border bg-[#fffdf8] p-5">
+        <p className="text-sm font-semibold">Alamat Project</p>
+        <p className="mt-2 text-sm leading-7 text-newraj-charcoal">{item.projectAddress}</p>
+      </div>
+      {item.notes ? (
+        <div className="mt-5 rounded-lg border bg-white p-5">
+          <p className="text-sm font-semibold">Catatan Project</p>
+          <p className="mt-2 whitespace-pre-line text-sm leading-7 text-newraj-charcoal">{item.notes}</p>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function DetailBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border bg-[#faf9f5] p-4">
+      <p className="text-xs font-semibold uppercase text-muted-foreground">{label}</p>
+      <p className="mt-2 text-sm font-semibold text-newraj-ink">{value || "-"}</p>
+    </div>
+  );
+}
 function InvitationStatusBadge({ item }: { item: InvitationRequest }) {
-  if (item.emailVerified && item.whatsappVerified) {
-    return <Badge variant="success">Verified</Badge>;
+  if (item.status === "approved" || item.approvedAt) {
+    return <Badge variant="success">Approved</Badge>;
   }
 
-  if (item.emailVerified || item.whatsappVerified) {
-    return <Badge variant="warning">Partial</Badge>;
+  if (item.whatsappVerified) {
+    return <Badge variant="warning">Waiting Approval</Badge>;
   }
 
-  return <Badge variant="muted">Pending</Badge>;
+  return <Badge variant="muted">Pending OTP</Badge>;
 }
 
 function formatDate(value: string) {
@@ -476,9 +555,9 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-function safeParseUser(value: string): { role?: string } | null {
+function safeParseUser(value: string): { id?: string; name?: string; email?: string; phone?: string; role?: string } | null {
   try {
-    return JSON.parse(value) as { role?: string };
+    return JSON.parse(value) as { id?: string; name?: string; email?: string; phone?: string; role?: string };
   } catch {
     return null;
   }

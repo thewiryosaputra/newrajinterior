@@ -59,6 +59,8 @@ export default function LoginPage() {
   const [teamEmail, setTeamEmail] = useState("");
   const [teamPassword, setTeamPassword] = useState("");
   const [clientPhone, setClientPhone] = useState("");
+  const [clientOtp, setClientOtp] = useState("");
+  const [clientOtpSent, setClientOtpSent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<"success" | "error">("success");
@@ -114,7 +116,7 @@ export default function LoginPage() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
+      const response = await fetch(`${API_BASE_URL}/auth/client/request-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: clientPhone.trim() }),
@@ -128,8 +130,9 @@ export default function LoginPage() {
       }
 
       window.localStorage.setItem("newraj_pending_client_phone", clientPhone.trim());
+      setClientOtpSent(true);
       setStatus("success");
-      setMessage("Kode OTP sudah dikirim ke WhatsApp. Tahap berikutnya adalah verifikasi OTP untuk masuk sebagai client.");
+      setMessage("Kode OTP sudah dikirim ke WhatsApp. Masukkan kode OTP untuk masuk sebagai client.");
     } catch (error) {
       setStatus("error");
       setMessage("Tidak bisa mengirim OTP WhatsApp sekarang.");
@@ -138,6 +141,46 @@ export default function LoginPage() {
     }
   }
 
+
+  async function handleClientOtpVerify(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage(null);
+
+    if (!clientPhone.trim() || !clientOtp.trim()) {
+      setStatus("error");
+      setMessage("Nomor WhatsApp dan kode OTP wajib diisi.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/client/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: clientPhone.trim(), otp: clientOtp.trim() }),
+      });
+      const data = (await response.json().catch(() => ({}))) as LoginResponse;
+
+      if (!response.ok || !data.accessToken) {
+        setStatus("error");
+        setMessage(formatApiMessage(data.message) || "Kode OTP tidak valid atau sudah kedaluwarsa.");
+        return;
+      }
+
+      window.localStorage.setItem("newraj_access_token", data.accessToken);
+      if (data.user) {
+        window.localStorage.setItem("newraj_user", JSON.stringify(data.user));
+        window.localStorage.setItem("newraj_user_role", data.user.role);
+      }
+      window.localStorage.removeItem("newraj_pending_client_phone");
+      router.replace("/dashboard");
+    } catch (error) {
+      setStatus("error");
+      setMessage("Tidak bisa verifikasi OTP WhatsApp sekarang.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
   return (
     <main className="min-h-screen bg-[#fbfaf7] text-newraj-ink">
       <div className="grid min-h-screen lg:grid-cols-[45%_55%]">
@@ -232,23 +275,36 @@ export default function LoginPage() {
               </div>
 
               {mode === "client" ? (
-                <form className="mt-8 space-y-6" onSubmit={handleClientLogin}>
+                <form className="mt-8 space-y-6" onSubmit={clientOtpSent ? handleClientOtpVerify : handleClientLogin}>
                   <div>
                     <label className="text-sm font-semibold" htmlFor="client-phone">Nomor WhatsApp</label>
                     <div className="relative mt-3">
                       <PhoneIcon className="absolute left-4 top-3 h-5 w-5 text-muted-foreground" />
-                      <Input id="client-phone" className="h-12 pl-12" inputMode="tel" placeholder="Contoh: 081234567890" value={clientPhone} onChange={(event) => setClientPhone(event.target.value)} />
+                      <Input id="client-phone" className="h-12 pl-12" inputMode="tel" placeholder="Contoh: 081234567890" value={clientPhone} onChange={(event) => setClientPhone(event.target.value)} disabled={clientOtpSent} />
                     </div>
                     <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                      Client cukup memasukkan nomor WhatsApp. Sistem akan mengirim kode OTP untuk login.
+                      Client masuk memakai nomor WhatsApp dan kode OTP dari sistem.
                     </p>
                   </div>
+
+                  {clientOtpSent ? (
+                    <div>
+                      <label className="text-sm font-semibold" htmlFor="client-otp">Kode OTP</label>
+                      <div className="relative mt-3">
+                        <ShieldCheckIcon className="absolute left-4 top-3 h-5 w-5 text-muted-foreground" />
+                        <Input id="client-otp" className="h-12 pl-12" inputMode="numeric" placeholder="Masukkan 6 digit OTP" value={clientOtp} onChange={(event) => setClientOtp(event.target.value)} />
+                      </div>
+                      <button className="mt-3 text-sm font-medium text-[#b87900] underline underline-offset-4" type="button" onClick={() => { setClientOtpSent(false); setClientOtp(""); setMessage(null); }}>
+                        Ganti nomor WhatsApp
+                      </button>
+                    </div>
+                  ) : null}
 
                   {message ? <StatusMessage status={status} message={message} /> : null}
 
                   <Button className="h-12 w-full text-base" disabled={isSubmitting} type="submit">
                     <ChatBubbleLeftRightIcon className="h-5 w-5" />
-                    {isSubmitting ? "Mengirim OTP..." : "Kirim OTP WhatsApp"}
+                    {isSubmitting ? (clientOtpSent ? "Verifikasi OTP..." : "Mengirim OTP...") : clientOtpSent ? "Login Client" : "Kirim OTP WhatsApp"}
                   </Button>
                 </form>
               ) : (

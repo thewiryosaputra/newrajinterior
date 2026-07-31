@@ -79,7 +79,7 @@ export class VerificationService {
     const appUrl = this.config.get<string>("APP_URL", "https://crm.newrajinterior.xyz");
     await this.sendWhatsapp(
       phone,
-      `Selamat, akun New Raj Interior Anda berhasil dibuat. Anda bisa login sebagai client melalui: ${appUrl}/login dengan memasukkan nomor WhatsApp Anda.`,
+      `Selamat, request jadwal kunjungan Anda berhasil di-approve admin. Akun CRM New Raj Interior Anda sudah aktif. Silakan login sebagai client melalui link berikut: ${appUrl}/login dengan memasukkan nomor WhatsApp Anda.`,
     );
   }
 

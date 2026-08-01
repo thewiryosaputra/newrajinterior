@@ -635,16 +635,7 @@ function SurveyorDashboard({
         />
       ) : null}
 
-      {reportItem ? (
-        <SurveyReportModal
-          item={reportItem}
-          onClose={() => setReportItem(null)}
-          onSuccess={(updated) => {
-            onUpdated(updated);
-            setReportItem(null);
-          }}
-        />
-      ) : null}
+
     </section>
   );
 }
@@ -1103,4 +1094,5 @@ function formatApiMessage(message: string | string[] | undefined) {
   if (Array.isArray(message)) return message.join(" ");
   return message;
 }
+
 

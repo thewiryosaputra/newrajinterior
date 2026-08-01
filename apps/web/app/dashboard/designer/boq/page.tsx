@@ -56,8 +56,33 @@ export default function DesignerBoqPage() {
     setBoqs((current) => current.map((boq) => boq.id === selected.id ? { ...boq, [field]: value, updatedAt: "Baru saja" } : boq));
   }
 
+  function addRow() {
+    const nextNo = String(rows.length + 1);
+    setRows((current) => [
+      ...current,
+      {
+        no: nextNo,
+        category: "Kategori Baru",
+        item: "Item Baru",
+        spec: "Spesifikasi item",
+        unit: "pcs",
+        qty: "1",
+        price: "Rp 0",
+        total: "Rp 0",
+      },
+    ]);
+    setIsEditing(true);
+  }
+
   function updateRow(index: number, field: keyof BoqRow, value: string) {
-    setRows((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, [field]: value } : row));
+    setRows((current) => current.map((row, rowIndex) => {
+      if (rowIndex !== index) return row;
+      const nextRow = { ...row, [field]: value };
+      if (field === "qty" || field === "price") {
+        nextRow.total = formatRupiah(parseNumber(nextRow.qty) * parseRupiah(nextRow.price));
+      }
+      return nextRow;
+    }));
   }
 
   return (
@@ -125,7 +150,7 @@ export default function DesignerBoqPage() {
                     </div>
                   </div>
                   <div className="overflow-hidden rounded-lg border bg-white shadow-sm">
-                    <div className="flex items-center justify-between border-b p-5"><h2 className="font-display text-xl font-semibold">Daftar Item BOQ</h2><Button size="sm"><PlusIcon className="h-4 w-4" />Tambah Item</Button></div>
+                    <div className="flex items-center justify-between border-b p-5"><h2 className="font-display text-xl font-semibold">Daftar Item BOQ</h2><Button size="sm" type="button" onClick={addRow}><PlusIcon className="h-4 w-4" />Tambah Item</Button></div>
                     <table className="w-full min-w-[980px] border-collapse text-left text-sm">
                       <thead className="bg-[#faf9f5] text-xs text-newraj-charcoal"><tr>{["No","Kategori","Item","Spesifikasi","Satuan","Qty","Harga Satuan","Total"].map((h)=><th className="px-4 py-3" key={h}>{h}</th>)}</tr></thead>
                       <tbody className="divide-y bg-white">{rows.map((row, index)=><tr className="hover:bg-[#fffaf0]" key={index}>{(Object.keys(row) as Array<keyof BoqRow>).map((field)=><td className="px-4 py-3" key={field}>{isEditing ? <InlineInput value={row[field]} onChange={(value) => updateRow(index, field, value)} /> : row[field]}</td>)}</tr>)}</tbody>
@@ -158,3 +183,17 @@ function EditableMetric({ label, value, sub, editing, onChange }: { label: strin
 function Panel({ title, children }: { title: string; children: React.ReactNode }) { return <div className="rounded-lg border bg-white p-5 shadow-sm"><h3 className="font-display text-xl font-semibold">{title}</h3><div className="mt-4">{children}</div></div>; }
 function Info({ label, value }: { label: string; value: string }) { return <div className="mb-3 flex justify-between gap-3 text-sm"><span className="text-muted-foreground">{label}</span><b className="text-right">{value}</b></div>; }
 function EditableInfo({ label, value, editing, onChange }: { label: string; value: string; editing: boolean; onChange: (value: string) => void }) { return <div className="mb-3 text-sm"><span className="text-muted-foreground">{label}</span>{editing ? <div className="mt-2"><InlineInput value={value} onChange={onChange} /></div> : <b className="float-right max-w-40 text-right">{value}</b>}</div>; }
+
+function parseNumber(value: string) {
+  const parsed = Number(value.replace(/[^0-9.,-]/g, "").replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parseRupiah(value: string) {
+  const parsed = Number(value.replace(/[^0-9-]/g, ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatRupiah(value: number) {
+  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value).replace(/\s/g, " ");
+}

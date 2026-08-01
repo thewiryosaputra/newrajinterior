@@ -30,6 +30,7 @@ type NavItem = {
   icon: NavIcon;
   adminOnly?: boolean;
   surveyorOnly?: boolean;
+  designerOnly?: boolean;
 };
 
 type DashboardUser = {
@@ -44,6 +45,9 @@ const navItems: NavItem[] = [
   { label: "Prospect Client", href: "/dashboard/prospect-client", icon: UserPlusIcon, adminOnly: true },
   { label: "Survey", href: "/dashboard", icon: MapPinIcon, surveyorOnly: true },
   { label: "Report List", href: "/dashboard/survey-report", icon: ClipboardDocumentListIcon, surveyorOnly: true },
+  { label: "Dashboard", href: "/dashboard", icon: HomeIcon, designerOnly: true },
+  { label: "Report List", href: "/dashboard/designer/report-list", icon: ClipboardDocumentListIcon, designerOnly: true },
+  { label: "BOQ", href: "/dashboard/designer/boq", icon: DocumentTextIcon, designerOnly: true },
   { label: "Project", icon: BriefcaseIcon },
   { label: "BOQ", icon: ClipboardDocumentListIcon },
   { label: "Kontrak", icon: DocumentTextIcon },
@@ -62,13 +66,15 @@ export function DashboardSidebar({ activeItem, user, onLogout }: { activeItem: s
   const router = useRouter();
   const isAdmin = user?.role === "admin";
   const isSurveyor = user?.role === "surveyor";
+  const isDesigner = user?.role === "designer";
   const visibleItems = navItems.filter((item) => {
     if (item.surveyorOnly) return isSurveyor;
-    if (isSurveyor) return false;
+    if (item.designerOnly) return isDesigner;
+    if (isSurveyor || isDesigner) return false;
     return isAdmin || !item.adminOnly;
   });
-  const profileName = user?.name || (isAdmin ? "Admin" : isSurveyor ? "Surveyor" : "Customer");
-  const profileRole = isAdmin ? "Administrator" : isSurveyor ? "Surveyor" : "Customer";
+  const profileName = user?.name || (isAdmin ? "Admin" : isSurveyor ? "Surveyor" : isDesigner ? "Designer" : "Customer");
+  const profileRole = isAdmin ? "Administrator" : isSurveyor ? "Surveyor" : isDesigner ? "Designer" : "Customer";
 
   return (
     <aside className="sticky top-0 hidden h-screen bg-[#070908] px-4 py-6 text-white lg:flex lg:flex-col">

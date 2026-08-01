@@ -13,6 +13,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ClipboardDocumentCheckIcon,
+  DocumentTextIcon,
   ClockIcon,
   Cog6ToothIcon,
   EllipsisVerticalIcon,
@@ -73,7 +74,8 @@ type InvitationRequest = {
 };
 
 const stats = [
-  { label: "Total Project", value: "24", sub: "Semua Project", icon: ClipboardDocumentCheckIcon, dark: true },
+  { label: "Total Project", value: "24", sub: "Semua Project", icon: ClipboardDocumentCheckIcon,
+  DocumentTextIcon, dark: true },
   { label: "Dalam Proses", value: "12", sub: "Project Aktif", icon: BriefcaseIcon },
   { label: "Dalam Antrian", value: "5", sub: "Menunggu Jadwal", icon: ClockIcon },
   { label: "Selesai", value: "7", sub: "Project Selesai", icon: CheckBadgeIcon },
@@ -172,7 +174,8 @@ export default function DashboardPage() {
   );
   const pendingCount = Math.max(invitations.length - verifiedCount, 0);
   const liveStats = [
-    { label: "Invitation Request", value: String(invitations.length), sub: "Data dari backend", icon: ClipboardDocumentCheckIcon, dark: true },
+    { label: "Invitation Request", value: String(invitations.length), sub: "Data dari backend", icon: ClipboardDocumentCheckIcon,
+  DocumentTextIcon, dark: true },
     { label: "Menunggu Verifikasi", value: String(pendingCount), sub: "WhatsApp pending", icon: ClockIcon },
     { label: "Terverifikasi", value: String(verifiedCount), sub: "Siap dibuat project", icon: CheckBadgeIcon },
     { label: "Project Aktif", value: "12", sub: "Data dummy sementara", icon: BriefcaseIcon },
@@ -205,6 +208,44 @@ export default function DashboardPage() {
             surveyorName={currentUser.name || "Surveyor"}
             onUpdated={(updated) => setInvitations((current) => current.map((item) => item.id === updated.id ? updated : item))}
           />
+        </div>
+      </main>
+    );
+  }
+
+  if (currentUser?.role === "designer") {
+    const reports = invitations.flatMap((item) => (item.surveyReports || []).map((report) => ({ ...report, client: item })));
+    return (
+      <main className="min-h-screen bg-[#fbfaf7] text-newraj-ink">
+        <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
+          <DashboardSidebar activeItem="Dashboard" user={currentUser} onLogout={handleLogout} />
+          <section className="min-w-0 px-4 py-6 sm:px-6 xl:px-8">
+            <header className="flex flex-col gap-3 border-b pb-5 xl:flex-row xl:items-end xl:justify-between">
+              <div>
+                <h1 className="font-display text-4xl font-bold">Dashboard Designer</h1>
+                <p className="mt-2 text-sm text-newraj-charcoal">Report survey yang sudah masuk dan siap diproses ke design.</p>
+              </div>
+              <Badge variant="warning">{reports.length} Siap Design</Badge>
+            </header>
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <StatCard label="Report Masuk" value={String(reports.length)} sub="Siap untuk design" icon={ClipboardDocumentCheckIcon} dark />
+              <StatCard label="BOQ Draft" value="3" sub="Perlu dilengkapi" icon={DocumentTextIcon} />
+              <StatCard label="Review PM" value="1" sub="Menunggu approval" icon={ClockIcon} />
+            </div>
+            <section className="mt-6 rounded-lg border bg-white p-6 shadow-sm">
+              <SectionHeader title="Report Siap Design" />
+              <div className="mt-5 overflow-hidden rounded-lg border">
+                <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+                  <thead className="bg-[#faf9f5] text-xs text-newraj-charcoal"><tr><th className="px-4 py-3">Client</th><th className="px-4 py-3">Project</th><th className="px-4 py-3">Report</th><th className="px-4 py-3">Aksi</th></tr></thead>
+                  <tbody className="divide-y bg-white">
+                    {reports.slice(0, 6).map((report) => (
+                      <tr key={report.id} className="hover:bg-[#fffaf0]"><td className="px-4 py-3 font-semibold">{report.client.customerName}</td><td className="px-4 py-3 text-muted-foreground">{report.client.projectType}</td><td className="px-4 py-3 text-muted-foreground">{formatDate(report.createdAt)}</td><td className="px-4 py-3"><Button asChild size="sm"><a href="/dashboard/designer/report-list">Lihat Report</a></Button></td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </section>
         </div>
       </main>
     );
@@ -1018,5 +1059,6 @@ function formatApiMessage(message: string | string[] | undefined) {
   if (Array.isArray(message)) return message.join(" ");
   return message;
 }
+
 
 

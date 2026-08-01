@@ -47,6 +47,7 @@ const navItems: NavItem[] = [
   { label: "Report List", href: "/dashboard/survey-report", icon: ClipboardDocumentListIcon, surveyorOnly: true },
   { label: "Dashboard", href: "/dashboard", icon: HomeIcon, designerOnly: true },
   { label: "Report List", href: "/dashboard/designer/report-list", icon: ClipboardDocumentListIcon, designerOnly: true },
+  { label: "Design List", href: "/dashboard/designer/design-list", icon: QueueListIcon, designerOnly: true },
   { label: "BOQ", href: "/dashboard/designer/boq", icon: DocumentTextIcon, designerOnly: true },
   { label: "Project", icon: BriefcaseIcon },
   { label: "BOQ", icon: ClipboardDocumentListIcon },
@@ -128,5 +129,6 @@ export function DashboardSidebar({ activeItem, user, onLogout }: { activeItem: s
     </aside>
   );
 }
+
 
 

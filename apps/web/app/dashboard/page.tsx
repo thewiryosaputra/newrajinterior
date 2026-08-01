@@ -50,6 +50,19 @@ type SurveyReport = {
   createdAt: string;
 };
 
+type DesignPresentation = {
+  id: string;
+  title: string;
+  presentationDate: string;
+  status: string;
+  clientNote?: string | null;
+  customerName: string;
+  phone: string;
+  projectType: string;
+  projectAddress: string;
+  createdAt: string;
+};
+
 type InvitationRequest = {
   id: string;
   customerName: string;
@@ -74,8 +87,7 @@ type InvitationRequest = {
 };
 
 const stats = [
-  { label: "Total Project", value: "24", sub: "Semua Project", icon: ClipboardDocumentCheckIcon,
-  DocumentTextIcon, dark: true },
+  { label: "Total Project", value: "24", sub: "Semua Project", icon: ClipboardDocumentCheckIcon, dark: true },
   { label: "Dalam Proses", value: "12", sub: "Project Aktif", icon: BriefcaseIcon },
   { label: "Dalam Antrian", value: "5", sub: "Menunggu Jadwal", icon: ClockIcon },
   { label: "Selesai", value: "7", sub: "Project Selesai", icon: CheckBadgeIcon },
@@ -124,6 +136,7 @@ export default function DashboardPage() {
   const [invitations, setInvitations] = useState<InvitationRequest[]>([]);
   const [isLoadingInvitations, setIsLoadingInvitations] = useState(true);
   const [invitationError, setInvitationError] = useState<string | null>(null);
+  const [designPresentations, setDesignPresentations] = useState<DesignPresentation[]>([]);
 
   useEffect(() => {
     const token = window.localStorage.getItem("newraj_access_token");
@@ -158,6 +171,15 @@ export default function DashboardPage() {
         }
 
         setInvitations(payload.data || []);
+
+        if (user?.role === "customer") {
+          const designResponse = await fetch(`${API_BASE_URL}/invitation-requests/my-design-presentations`, {
+            cache: "no-store",
+            headers: { Authorization: `Bearer ${token ?? ""}` },
+          });
+          const designPayload = (await designResponse.json().catch(() => ({}))) as { data?: DesignPresentation[] };
+          if (designResponse.ok) setDesignPresentations(designPayload.data || []);
+        }
       } catch (error) {
         setInvitationError("Tidak bisa terhubung ke API invitation.");
       } finally {
@@ -174,8 +196,7 @@ export default function DashboardPage() {
   );
   const pendingCount = Math.max(invitations.length - verifiedCount, 0);
   const liveStats = [
-    { label: "Invitation Request", value: String(invitations.length), sub: "Data dari backend", icon: ClipboardDocumentCheckIcon,
-  DocumentTextIcon, dark: true },
+    { label: "Invitation Request", value: String(invitations.length), sub: "Data dari backend", icon: ClipboardDocumentCheckIcon, dark: true },
     { label: "Menunggu Verifikasi", value: String(pendingCount), sub: "WhatsApp pending", icon: ClockIcon },
     { label: "Terverifikasi", value: String(verifiedCount), sub: "Siap dibuat project", icon: CheckBadgeIcon },
     { label: "Project Aktif", value: "12", sub: "Data dummy sementara", icon: BriefcaseIcon },
@@ -261,7 +282,8 @@ export default function DashboardPage() {
               <h1 className="font-display text-4xl font-bold">Dashboard Client</h1>
               <p className="text-sm text-newraj-charcoal">Selamat datang, {currentUser.name || "Customer"}. Berikut detail invitation yang sudah Anda isi.</p>
             </header>
-            <div className="mt-6">
+            <div className="mt-6 grid gap-5">
+              <ClientDesignSchedule designs={designPresentations} onUpdated={(updated) => setDesignPresentations((current) => current.map((item) => item.id === updated.id ? { ...item, ...updated } : item))} />
               {isLoadingInvitations ? (
                 <p className="rounded-lg border bg-white p-5 text-sm text-muted-foreground">Memuat detail invitation...</p>
               ) : invitationError ? (
@@ -945,6 +967,117 @@ function RescheduleModal({
     </div>
   );
 }
+function ClientDesignSchedule({ designs, onUpdated }: { designs: DesignPresentation[]; onUpdated: (updated: Partial<DesignPresentation> & { id: string }) => void }) {
+  const [active, setActive] = useState<DesignPresentation | null>(null);
+  const [mode, setMode] = useState<"reschedule" | "pending" | null>(null);
+  const [dateTime, setDateTime] = useState("");
+  const [note, setNote] = useState("");
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function respond(item: DesignPresentation, action: "approve" | "reschedule" | "pending" | "cancel") {
+    setError("");
+    if ((action === "reschedule" || action === "pending") && !dateTime) {
+      setError(action === "pending" ? "Perkiraan waktu wajib diisi." : "Tanggal reschedule wajib diisi.");
+      return;
+    }
+    if (action === "pending" && !note.trim()) {
+      setError("Catatan pending wajib diisi.");
+      return;
+    }
+    setBusyId(item.id);
+    try {
+      const token = window.localStorage.getItem("newraj_access_token");
+      const response = await fetch(API_BASE_URL + "/invitation-requests/design-presentations/" + item.id + "/respond", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + (token ?? "") },
+        body: JSON.stringify({ action, requestedDate: dateTime ? new Date(dateTime).toISOString() : undefined, note: note.trim() || undefined }),
+      });
+      const payload = await response.json().catch(() => ({})) as { data?: { id: string; presentation_date?: string; presentationDate?: string; status?: string; client_note?: string; clientNote?: string }; message?: string | string[] };
+      if (!response.ok || !payload.data) throw new Error(Array.isArray(payload.message) ? payload.message.join(", ") : payload.message || "Response jadwal design gagal disimpan.");
+      onUpdated({ id: item.id, status: payload.data.status || action, presentationDate: payload.data.presentationDate || payload.data.presentation_date || item.presentationDate, clientNote: payload.data.clientNote || payload.data.client_note || note });
+      setActive(null);
+      setMode(null);
+      setDateTime("");
+      setNote("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Response jadwal design gagal disimpan.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  if (designs.length === 0) return null;
+
+  return (
+    <section className="rounded-lg border bg-white p-6 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-display text-2xl font-semibold">Jadwal Presentasi Design</h2>
+        <Badge variant="warning">{designs.length} jadwal</Badge>
+      </div>
+      <div className="mt-5 grid gap-4">
+        {designs.map((item) => (
+          <div key={item.id} className="rounded-lg border bg-[#fffdf8] p-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="font-display text-xl font-semibold">{item.title}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{formatDateTime(item.presentationDate)} - {item.projectType}</p>
+              </div>
+              <InvitationStatusPill status={item.status} />
+            </div>
+            <p className="mt-3 text-sm leading-6 text-newraj-charcoal">{item.projectAddress}</p>
+            {item.clientNote ? <p className="mt-3 rounded-md border bg-white px-3 py-2 text-sm text-newraj-charcoal">Catatan: {item.clientNote}</p> : null}
+            {item.status === "scheduled" ? (
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Button size="sm" type="button" disabled={busyId === item.id} onClick={() => respond(item, "approve")}>Bisa Hadir</Button>
+                <Button size="sm" type="button" variant="outline" onClick={() => { setActive(item); setMode("reschedule"); setDateTime(toLocalDateTimeInput(item.presentationDate)); setNote(""); }}>Reschedule</Button>
+                <Button size="sm" type="button" variant="outline" onClick={() => { setActive(item); setMode("pending"); setDateTime(""); setNote(""); }}>Pending</Button>
+                <Button size="sm" type="button" variant="outline" disabled={busyId === item.id} onClick={() => respond(item, "cancel")}>Batal</Button>
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+      {active && mode ? (
+        <div className="fixed inset-0 z-[1600] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-lg border bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div><h3 className="font-display text-2xl font-bold">{mode === "reschedule" ? "Reschedule Presentasi" : "Pending Presentasi"}</h3><p className="mt-1 text-sm text-newraj-charcoal">{mode === "reschedule" ? "Pilih jadwal baru maksimal 7 hari dari jadwal awal." : "Masukkan perkiraan waktu kapan Anda bisa memberi kepastian."}</p></div>
+              <button type="button" onClick={() => { setActive(null); setMode(null); }} className="rounded-md border px-3 py-1 text-sm text-newraj-charcoal">Tutup</button>
+            </div>
+            {error ? <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+            <div className="mt-5 grid gap-4">
+              <label className="grid gap-2 text-sm font-semibold">Waktu<input type="datetime-local" value={dateTime} min={toLocalDateTimeInput(active.presentationDate)} max={mode === "reschedule" ? toLocalDateTimeInput(addDays(active.presentationDate, 7)) : undefined} onChange={(event) => setDateTime(event.target.value)} className="rounded-md border px-3 py-2 text-sm font-normal outline-none focus:border-newraj-gold" /></label>
+              <label className="grid gap-2 text-sm font-semibold">Catatan<textarea rows={4} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Tulis catatan atau perkiraan waktu Anda." className="resize-none rounded-md border px-3 py-2 text-sm font-normal outline-none focus:border-newraj-gold" /></label>
+            </div>
+            <div className="mt-6 flex justify-end gap-3"><Button type="button" variant="outline" onClick={() => { setActive(null); setMode(null); }}>Batal</Button><Button type="button" disabled={busyId === active.id} onClick={() => respond(active, mode)}>{busyId === active.id ? "Menyimpan..." : "Simpan"}</Button></div>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function InvitationStatusPill({ status }: { status: string }) {
+  if (status === "approved") return <Badge variant="success">Bisa Hadir</Badge>;
+  if (status === "reschedule") return <Badge variant="warning">Reschedule</Badge>;
+  if (status === "pending") return <Badge variant="warning">Pending</Badge>;
+  if (status === "cancelled") return <Badge variant="destructive">Batal</Badge>;
+  return <Badge variant="muted">Menunggu Konfirmasi</Badge>;
+}
+
+function addDays(value: string, days: number) {
+  const date = new Date(value);
+  date.setDate(date.getDate() + days);
+  return date.toISOString();
+}
+
+function toLocalDateTimeInput(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 16);
+}
 function ClientInvitationDetail({ item }: { item: InvitationRequest }) {
   return (
     <section className="rounded-lg border bg-white p-6 shadow-sm">
@@ -1059,6 +1192,10 @@ function formatApiMessage(message: string | string[] | undefined) {
   if (Array.isArray(message)) return message.join(" ");
   return message;
 }
+
+
+
+
 
 
 

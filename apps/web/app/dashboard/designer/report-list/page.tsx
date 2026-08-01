@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDaysIcon, LinkIcon, MapPinIcon } from "@heroicons/react/24/outline";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
@@ -11,6 +11,7 @@ const API_BASE_URL = "https://api.newrajinterior.xyz/api";
 
 type Report = { id: string; photoLink?: string | null; videoLink?: string | null; measurementNotes: string; createdAt: string };
 type RequestItem = { id: string; customerName: string; phone: string; surveyDate: string; projectType: string; projectAddress: string; surveyReports?: Report[] };
+type ReportItem = Report & { client: RequestItem };
 type User = { name?: string; role?: string };
 
 export default function DesignerReportListPage() {
@@ -18,6 +19,7 @@ export default function DesignerReportListPage() {
   const [user, setUser] = useState<User | null>(null);
   const [items, setItems] = useState<RequestItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [designReport, setDesignReport] = useState<ReportItem | null>(null);
   const [loading, setLoading] = useState(true);
   const reports = useMemo(() => items.flatMap((item) => (item.surveyReports || []).map((report) => ({ ...report, client: item }))), [items]);
   const selected = reports.find((report) => report.id === selectedId) ?? reports[0] ?? null;
@@ -50,7 +52,7 @@ export default function DesignerReportListPage() {
           <header className="flex flex-col gap-3 border-b pb-5 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <h1 className="font-display text-4xl font-bold">Report List</h1>
-              <p className="mt-2 text-sm text-newraj-charcoal">Report hasil survey yang siap diproses oleh designer.</p>
+              <p className="mt-2 text-sm text-newraj-charcoal">Report hasil survey yang siap diproses menjadi design.</p>
             </div>
             <Badge variant="warning">{reports.length} Siap Design</Badge>
           </header>
@@ -88,7 +90,7 @@ export default function DesignerReportListPage() {
                         {selected.videoLink ? <a className="inline-flex items-center gap-2 font-semibold text-newraj-gold underline" href={selected.videoLink} target="_blank" rel="noreferrer"><LinkIcon className="h-4 w-4" />Link Video</a> : null}
                       </div>
                     </div>
-                    <div className="mt-5 flex justify-end"><Button asChild><a href="/dashboard/designer/boq">Buat BOQ</a></Button></div>
+                    <div className="mt-5 flex justify-end"><Button type="button" onClick={() => setDesignReport(selected)}>Buat Design</Button></div>
                   </>
                 ) : <p className="text-sm text-muted-foreground">Belum ada report survey.</p>}
               </div>
@@ -96,7 +98,56 @@ export default function DesignerReportListPage() {
           ) : null}
         </section>
       </div>
+      {designReport ? <CreateDesignModal report={designReport} onClose={() => setDesignReport(null)} onSuccess={() => router.push("/dashboard/designer/design-list")} /> : null}
     </main>
+  );
+}
+
+function CreateDesignModal({ report, onClose, onSuccess }: { report: ReportItem; onClose: () => void; onSuccess: () => void }) {
+  const [title, setTitle] = useState("Design " + report.client.customerName);
+  const [dateTime, setDateTime] = useState(toLocalDateTimeInput(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()));
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setSubmitting(true);
+    try {
+      const token = window.localStorage.getItem("newraj_access_token");
+      const response = await fetch(API_BASE_URL + "/invitation-requests/" + report.client.id + "/design-presentations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + (token ?? "") },
+        body: JSON.stringify({ reportId: report.id, title, presentationDate: new Date(dateTime).toISOString() }),
+      });
+      const payload = await response.json().catch(() => ({})) as { message?: string | string[] };
+      if (!response.ok) throw new Error(Array.isArray(payload.message) ? payload.message.join(", ") : payload.message || "Design gagal dibuat.");
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Design gagal dibuat.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[1600] flex items-center justify-center bg-black/60 p-4">
+      <form onSubmit={submit} className="w-full max-w-lg rounded-lg border bg-white p-6 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="font-display text-2xl font-bold">Buat Design</h3>
+            <p className="mt-1 text-sm text-newraj-charcoal">Client akan menerima jadwal presentasi design lewat WhatsApp.</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-md border px-3 py-1 text-sm text-newraj-charcoal">Tutup</button>
+        </div>
+        {error ? <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+        <div className="mt-5 grid gap-4">
+          <label className="grid gap-2 text-sm font-semibold">Judul design<input value={title} onChange={(event) => setTitle(event.target.value)} required className="rounded-md border px-3 py-2 text-sm font-normal outline-none focus:border-newraj-gold" /></label>
+          <label className="grid gap-2 text-sm font-semibold">Perkiraan design selesai / presentasi<input type="datetime-local" value={dateTime} onChange={(event) => setDateTime(event.target.value)} required className="rounded-md border px-3 py-2 text-sm font-normal outline-none focus:border-newraj-gold" /></label>
+        </div>
+        <div className="mt-6 flex justify-end gap-3"><Button type="button" variant="outline" onClick={onClose}>Batal</Button><Button type="submit" disabled={submitting}>{submitting ? "Menyimpan..." : "Kirim Jadwal"}</Button></div>
+      </form>
+    </div>
   );
 }
 
@@ -106,4 +157,10 @@ function Info({ icon: Icon, label, value }: { icon: React.ComponentType<React.SV
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+}
+
+function toLocalDateTimeInput(value: string) {
+  const date = new Date(value);
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 16);
 }

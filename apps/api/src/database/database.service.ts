@@ -66,7 +66,9 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ,
         ADD COLUMN IF NOT EXISTS approved_by UUID REFERENCES users(id) ON DELETE SET NULL,
         ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-        ADD COLUMN IF NOT EXISTS survey_reschedule_note TEXT
+        ADD COLUMN IF NOT EXISTS survey_reschedule_note TEXT,
+        ADD COLUMN IF NOT EXISTS surveyor_approved_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS surveyor_approved_by UUID REFERENCES users(id) ON DELETE SET NULL
     `);
 
     await this.query(`

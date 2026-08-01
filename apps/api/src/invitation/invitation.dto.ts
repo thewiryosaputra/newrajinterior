@@ -1,4 +1,4 @@
-import { IsDateString, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
+﻿import { IsDateString, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
 
 export class CreateInvitationLinkDto {
   @IsString()
@@ -66,3 +66,18 @@ export class RescheduleSurveyDto {
   @IsNotEmpty()
   reason!: string;
 }
+
+export class SubmitSurveyReportDto {
+  @IsString()
+  @IsOptional()
+  photoLink?: string;
+
+  @IsString()
+  @IsOptional()
+  videoLink?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  measurementNotes!: string;
+}
+

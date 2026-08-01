@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+﻿import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { createHash, randomInt, randomUUID } from "node:crypto";
 import nodemailer from "nodemailer";
@@ -83,16 +83,23 @@ export class VerificationService {
     );
   }
 
+  async sendSurveyorApprovedWhatsapp(input: { phone: string; customerName: string; surveyDate: Date }) {
+    const formattedDate = this.formatJakartaDate(input.surveyDate);
+    await this.sendWhatsapp(
+      input.phone,
+      "Halo " + input.customerName + ", surveyor New Raj Interior bersedia berkunjung ke lokasi sesuai jadwal yang telah Anda tentukan: " + formattedDate + ".\\n\\nMohon pastikan lokasi siap dikunjungi. Terima kasih.",
+    );
+  }
+
+  async sendSurveyReportSubmittedWhatsapp(input: { phone: string; customerName: string }) {
+    await this.sendWhatsapp(
+      input.phone,
+      "Halo " + input.customerName + ", report hasil survey New Raj Interior sudah berhasil dicatat oleh surveyor. Tim kami akan melanjutkan proses berikutnya.",
+    );
+  }
+
   async sendSurveyRescheduledWhatsapp(input: { phone: string; customerName: string; surveyDate: Date; reason: string }) {
-    const formattedDate = new Intl.DateTimeFormat("id-ID", {
-      weekday: "long",
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "Asia/Jakarta",
-    }).format(input.surveyDate);
+    const formattedDate = this.formatJakartaDate(input.surveyDate);
 
     await this.sendWhatsapp(
       input.phone,
@@ -138,6 +145,18 @@ export class VerificationService {
       [normalized],
     );
     return { verified: true };
+  }
+
+  private formatJakartaDate(value: Date) {
+    return new Intl.DateTimeFormat("id-ID", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Asia/Jakarta",
+    }).format(value);
   }
 
   private async storeToken(input: { target: string; channel: Channel; token: string; minutes: number; userId?: string }) {

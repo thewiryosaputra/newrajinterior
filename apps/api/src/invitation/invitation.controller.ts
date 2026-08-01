@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Headers, Param, Post, Query } from "@nestjs/common";
-import { CreateInvitationLinkDto, CreateInvitationRequestDto, RescheduleSurveyDto, VerifyInvitationWhatsappDto } from "./invitation.dto";
+import { CreateInvitationLinkDto, CreateInvitationRequestDto, RescheduleSurveyDto, SubmitSurveyReportDto, VerifyInvitationWhatsappDto } from "./invitation.dto";
 import { InvitationService } from "./invitation.service";
 
 @Controller("invitation-requests")
@@ -51,9 +51,19 @@ export class InvitationController {
     return this.invitation.approveRequest(id, authorization);
   }
 
+  @Post(":id/surveyor-approve")
+  approveBySurveyor(@Param("id") id: string, @Headers("authorization") authorization?: string) {
+    return this.invitation.approveBySurveyor(id, authorization);
+  }
+
   @Post(":id/reschedule-survey")
   rescheduleSurvey(@Param("id") id: string, @Body() dto: RescheduleSurveyDto, @Headers("authorization") authorization?: string) {
     return this.invitation.rescheduleSurvey(id, dto, authorization);
+  }
+
+  @Post(":id/survey-report")
+  submitSurveyReport(@Param("id") id: string, @Body() dto: SubmitSurveyReportDto, @Headers("authorization") authorization?: string) {
+    return this.invitation.submitSurveyReport(id, dto, authorization);
   }
 
   @Get(":id")

@@ -4,7 +4,7 @@ import * as bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { DatabaseService } from "../database/database.service";
 import { hashToken, normalizePhone, VerificationService } from "../verification/verification.service";
-import { CreateInvitationLinkDto, CreateInvitationRequestDto, RescheduleSurveyDto, VerifyInvitationWhatsappDto } from "./invitation.dto";
+import { CreateInvitationLinkDto, CreateInvitationRequestDto, RescheduleSurveyDto, SubmitSurveyReportDto, VerifyInvitationWhatsappDto } from "./invitation.dto";
 
 @Injectable()
 export class InvitationService {
@@ -200,6 +200,75 @@ export class InvitationService {
     return { approved: true, message: "Request disetujui. Akun client sudah aktif dan pemberitahuan login dikirim lewat WhatsApp." };
   }
 
+  async approveBySurveyor(id: string, authHeader?: string) {
+    const surveyor = await this.requireSurveyor(authHeader);
+    const result = await this.db.query(
+      `UPDATE invitation_requests
+       SET surveyor_approved_at = now(), surveyor_approved_by = $2, updated_at = now()
+       WHERE id = $1 AND (status = 'approved' OR approved_at IS NOT NULL)
+       RETURNING id, customer_name, phone, email, survey_date, project_type, estimated_budget,
+        project_address, latitude, longitude, notes, survey_reschedule_note, surveyor_approved_at, status, email_verified_at, whatsapp_verified_at, approved_at, user_id, created_at`,
+      [id, surveyor.sub],
+    );
+
+    const row = result.rows[0];
+    if (!row) throw new NotFoundException("Jadwal survey tidak ditemukan atau belum approved admin.");
+    await this.verification.sendSurveyorApprovedWhatsapp({
+      phone: String(row.phone),
+      customerName: String(row.customer_name),
+      surveyDate: new Date(String(row.survey_date)),
+    });
+
+    return { data: mapInvitation(row), message: "Survey approved dan notifikasi WhatsApp dikirim ke client." };
+  }
+
+  async submitSurveyReport(id: string, dto: SubmitSurveyReportDto, authHeader?: string) {
+    const surveyor = await this.requireSurveyor(authHeader);
+    const request = await this.db.query<{ id: string; customer_name: string; phone: string }>(
+      `SELECT id, customer_name, phone
+       FROM invitation_requests
+       WHERE id = $1 AND (status = 'approved' OR approved_at IS NOT NULL)`,
+      [id],
+    );
+    const requestRow = request.rows[0];
+    if (!requestRow) throw new NotFoundException("Jadwal survey tidak ditemukan atau belum approved admin.");
+
+    await this.db.query(
+      `INSERT INTO survey_reports (invitation_request_id, submitted_by, photo_link, video_link, measurement_notes)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [id, surveyor.sub, dto.photoLink?.trim() || null, dto.videoLink?.trim() || null, dto.measurementNotes.trim()],
+    );
+
+    const result = await this.db.query(
+      `SELECT ir.id, ir.customer_name, ir.phone, ir.email, ir.survey_date, ir.project_type, ir.estimated_budget,
+        ir.project_address, ir.latitude, ir.longitude, ir.notes, ir.survey_reschedule_note, ir.surveyor_approved_at, ir.status, ir.email_verified_at, ir.whatsapp_verified_at, ir.approved_at, ir.user_id, ir.created_at,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', sr.id,
+              'photoLink', sr.photo_link,
+              'videoLink', sr.video_link,
+              'measurementNotes', sr.measurement_notes,
+              'createdAt', sr.created_at
+            ) ORDER BY sr.created_at DESC
+          ) FILTER (WHERE sr.id IS NOT NULL),
+          '[]'::json
+        ) AS survey_reports
+       FROM invitation_requests ir
+       LEFT JOIN survey_reports sr ON sr.invitation_request_id = ir.id
+       WHERE ir.id = $1
+       GROUP BY ir.id`,
+      [id],
+    );
+
+    await this.verification.sendSurveyReportSubmittedWhatsapp({
+      phone: requestRow.phone,
+      customerName: requestRow.customer_name,
+    });
+
+    return { data: mapInvitation(result.rows[0]), message: "Report survey berhasil disimpan." };
+  }
+
   async rescheduleSurvey(id: string, dto: RescheduleSurveyDto, authHeader?: string) {
     await this.requireSurveyor(authHeader);
     const result = await this.db.query(
@@ -207,7 +276,7 @@ export class InvitationService {
        SET survey_date = $2, survey_reschedule_note = $3, updated_at = now()
        WHERE id = $1 AND (status = 'approved' OR approved_at IS NOT NULL)
        RETURNING id, customer_name, phone, email, survey_date, project_type, estimated_budget,
-        project_address, latitude, longitude, notes, survey_reschedule_note, status, email_verified_at, whatsapp_verified_at, approved_at, user_id, created_at`,
+        project_address, latitude, longitude, notes, survey_reschedule_note, surveyor_approved_at, status, email_verified_at, whatsapp_verified_at, approved_at, user_id, created_at`,
       [id, dto.surveyDate, dto.reason.trim()],
     );
 

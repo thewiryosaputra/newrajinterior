@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   ArrowRightOnRectangleIcon,
   BellIcon,
@@ -58,6 +58,7 @@ type InvitationRequest = {
   approvedAt?: string | null;
   userId?: string | null;
   notes?: string | null;
+  surveyRescheduleNote?: string | null;
   createdAt: string;
 };
 
@@ -192,6 +193,7 @@ export default function DashboardPage() {
             isLoading={isLoadingInvitations}
             error={invitationError}
             surveyorName={currentUser.name || "Surveyor"}
+            onRescheduled={(updated) => setInvitations((current) => current.map((item) => item.id === updated.id ? updated : item))}
           />
         </div>
       </main>
@@ -530,11 +532,13 @@ function SurveyorDashboard({
   isLoading,
   error,
   surveyorName,
+  onRescheduled,
 }: {
   invitations: InvitationRequest[];
   isLoading: boolean;
   error: string | null;
   surveyorName: string;
+  onRescheduled: (updated: InvitationRequest) => void;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = invitations.find((item) => item.id === selectedId) ?? invitations[0] ?? null;
@@ -587,14 +591,15 @@ function SurveyorDashboard({
             ))}
           </div>
 
-          {selected ? <SurveyDetail item={selected} /> : null}
+          {selected ? <SurveyDetail item={selected} onRescheduled={onRescheduled} /> : null}
         </div>
       )}
     </section>
   );
 }
 
-function SurveyDetail({ item }: { item: InvitationRequest }) {
+function SurveyDetail({ item, onRescheduled }: { item: InvitationRequest; onRescheduled: (updated: InvitationRequest) => void }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const position = { lat: item.latitude, lng: item.longitude };
   const googleMapsUrl = "https://www.google.com/maps/dir/?api=1&destination=" + item.latitude + "," + item.longitude + "&travelmode=driving";
 
@@ -605,12 +610,18 @@ function SurveyDetail({ item }: { item: InvitationRequest }) {
           <h2 className="font-display text-3xl font-semibold">{item.customerName}</h2>
           <p className="mt-2 text-sm text-muted-foreground">{item.projectType}</p>
         </div>
-        <Button asChild className="h-11">
-          <a href={googleMapsUrl} target="_blank" rel="noreferrer">
-            <MapPinIcon className="h-5 w-5" />
-            Navigasikan ke Google
-          </a>
-        </Button>
+<div className="flex flex-col gap-3 sm:flex-row">
+          <Button className="h-11 bg-white text-foreground shadow-sm hover:bg-muted" type="button" variant="outline" onClick={() => setIsModalOpen(true)}>
+            <CalendarDaysIcon className="h-5 w-5" />
+            Ubah Jadwal
+          </Button>
+          <Button asChild className="h-11">
+            <a href={googleMapsUrl} target="_blank" rel="noreferrer">
+              <MapPinIcon className="h-5 w-5" />
+              Navigasikan ke Google
+            </a>
+          </Button>
+        </div>
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -626,6 +637,12 @@ function SurveyDetail({ item }: { item: InvitationRequest }) {
             <p className="flex items-center gap-2 text-sm font-semibold"><MapPinIcon className="h-5 w-5 text-newraj-gold" />Alamat Project</p>
             <p className="mt-3 text-sm leading-7 text-newraj-charcoal">{item.projectAddress}</p>
           </div>
+          {item.surveyRescheduleNote ? (
+            <div className="rounded-lg border border-newraj-gold/35 bg-[#fff8e8] p-5">
+              <p className="text-sm font-semibold">Catatan Perubahan Jadwal</p>
+              <p className="mt-3 whitespace-pre-line text-sm leading-7 text-newraj-charcoal">{item.surveyRescheduleNote}</p>
+            </div>
+          ) : null}
           {item.notes ? (
             <div className="rounded-lg border bg-white p-5">
               <p className="text-sm font-semibold">Catatan Client</p>
@@ -640,7 +657,104 @@ function SurveyDetail({ item }: { item: InvitationRequest }) {
           <ReadOnlyLocationMap position={position} />
         </div>
       </div>
+      {isModalOpen ? (
+        <RescheduleModal
+          item={item}
+          onClose={() => setIsModalOpen(false)}
+          onSuccess={(updated) => {
+            onRescheduled(updated);
+            setIsModalOpen(false);
+          }}
+        />
+      ) : null}
     </section>
+  );
+}
+
+function RescheduleModal({
+  item,
+  onClose,
+  onSuccess,
+}: {
+  item: InvitationRequest;
+  onClose: () => void;
+  onSuccess: (updated: InvitationRequest) => void;
+}) {
+  const [date, setDate] = useState(toDateInputValue(item.surveyDate));
+  const [time, setTime] = useState(toTimeInputValue(item.surveyDate));
+  const [reason, setReason] = useState(item.surveyRescheduleNote || "");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submitReschedule(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const token = window.localStorage.getItem("newraj_access_token");
+      const response = await fetch(`${API_BASE_URL}/invitation-requests/${item.id}/reschedule-survey`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token ?? ""}`,
+        },
+        body: JSON.stringify({
+          surveyDate: toApiDateTimeFromInputs(date, time),
+          reason: reason.trim(),
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { data?: InvitationRequest; message?: string | string[] };
+      if (!response.ok || !payload.data) {
+        setError(formatApiMessage(payload.message) || "Jadwal gagal diubah.");
+        return;
+      }
+      onSuccess(payload.data);
+    } catch (err) {
+      setError("Tidak bisa terhubung ke API jadwal.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/55 px-4 py-6" role="dialog" aria-modal="true">
+      <form className="w-full max-w-xl rounded-lg border bg-white p-6 shadow-soft" onSubmit={submitReschedule}>
+        <div className="flex items-start justify-between gap-4 border-b pb-4">
+          <div>
+            <h3 className="font-display text-2xl font-semibold">Ubah Jadwal Survey</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{item.customerName}</p>
+          </div>
+          <button className="rounded-md px-3 py-2 text-sm font-semibold hover:bg-muted" type="button" onClick={onClose}>Batal</button>
+        </div>
+
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="text-sm font-semibold" htmlFor="reschedule-date">Tanggal</label>
+            <input id="reschedule-date" className="mt-2 h-11 w-full rounded-md border px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" type="date" value={date} onChange={(event) => setDate(event.target.value)} required />
+          </div>
+          <div>
+            <label className="text-sm font-semibold" htmlFor="reschedule-time">Waktu</label>
+            <input id="reschedule-time" className="mt-2 h-11 w-full rounded-md border px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" type="time" value={time} onChange={(event) => setTime(event.target.value)} required />
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <label className="text-sm font-semibold" htmlFor="reschedule-reason">Alasan atau Catatan</label>
+          <textarea id="reschedule-reason" className="mt-2 min-h-28 w-full resize-none rounded-md border px-3 py-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="Contoh: Surveyor perlu menyesuaikan jadwal kunjungan karena agenda lapangan." value={reason} onChange={(event) => setReason(event.target.value)} required />
+        </div>
+
+        {error ? <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <Button className="h-12 flex-1" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Menyimpan..." : "Simpan & Kirim Notifikasi"}
+          </Button>
+          <Button className="h-12 flex-1 bg-white text-foreground shadow-sm hover:bg-muted" type="button" variant="outline" onClick={onClose}>
+            Batal
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -715,6 +829,27 @@ function formatDateTime(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function toDateInputValue(value: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+}
+
+function toTimeInputValue(value: string) {
+  if (!value) return "09:00";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "09:00";
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function toApiDateTimeFromInputs(date: string, time: string) {
+  const [hours = "09", minutes = "00"] = time.split(":");
+  const scheduled = new Date(date);
+  scheduled.setHours(Number(hours), Number(minutes), 0, 0);
+  return scheduled.toISOString();
 }
 
 function safeParseUser(value: string): { id?: string; name?: string; email?: string; phone?: string; role?: string } | null {

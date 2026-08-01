@@ -552,7 +552,6 @@ function SurveyorDashboard({
   onUpdated: (updated: InvitationRequest) => void;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [reportItem, setReportItem] = useState<InvitationRequest | null>(null);
   const selected = invitations.find((item) => item.id === selectedId) ?? null;
 
   return (
@@ -614,8 +613,8 @@ function SurveyorDashboard({
                         <Button asChild size="sm" className="bg-white text-foreground shadow-sm hover:bg-muted" variant="outline">
                           <a href={googleMapsUrl} target="_blank" rel="noreferrer">Visit</a>
                         </Button>
-                        <Button size="sm" className="bg-white text-foreground shadow-sm hover:bg-muted" variant="outline" type="button" onClick={() => setReportItem(item)}>
-                          Report
+                        <Button asChild size="sm" className="bg-white text-foreground shadow-sm hover:bg-muted" variant="outline">
+                          <a href={"/dashboard/survey-report/new?id=" + item.id}>Report</a>
                         </Button>
                       </div>
                     </td>
@@ -797,81 +796,6 @@ function SurveyReportList({ reports }: { reports: SurveyReport[] }) {
   );
 }
 
-function SurveyReportModal({
-  item,
-  onClose,
-  onSuccess,
-}: {
-  item: InvitationRequest;
-  onClose: () => void;
-  onSuccess: (updated: InvitationRequest) => void;
-}) {
-  const [photoLink, setPhotoLink] = useState("");
-  const [videoLink, setVideoLink] = useState("");
-  const [measurementNotes, setMeasurementNotes] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    setIsSubmitting(true);
-    try {
-      const token = typeof window !== "undefined" ? window.localStorage.getItem("newraj_access_token") : null;
-      const response = await fetch(API_BASE_URL + "/invitation-requests/" + item.id + "/survey-report", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + (token ?? ""),
-        },
-        body: JSON.stringify({ photoLink, videoLink, measurementNotes }),
-      });
-      const payload = (await response.json().catch(() => ({}))) as { data?: InvitationRequest; message?: string | string[] };
-      if (!response.ok || !payload.data) {
-        const message = Array.isArray(payload.message) ? payload.message.join(", ") : payload.message;
-        throw new Error(message || "Report survey gagal disimpan.");
-      }
-      onSuccess(payload.data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Report survey gagal disimpan.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-[1600] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">
-      <form onSubmit={handleSubmit} className="relative z-[1601] w-full max-w-xl rounded-lg border bg-white p-6 shadow-2xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="font-display text-2xl font-bold">Report Survey</h3>
-            <p className="mt-1 text-sm text-newraj-charcoal">Isi link dokumentasi dan catatan hasil pengukuran untuk {item.customerName}.</p>
-          </div>
-          <button type="button" onClick={onClose} className="rounded-md border px-3 py-1 text-sm text-newraj-charcoal">Tutup</button>
-        </div>
-        {error ? <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
-        <div className="mt-5 grid gap-4">
-          <label className="grid gap-2 text-sm font-semibold">
-            Link Foto
-            <input value={photoLink} onChange={(event) => setPhotoLink(event.target.value)} placeholder="https://drive.google.com/..." className="rounded-md border px-3 py-2 text-sm font-normal outline-none focus:border-newraj-gold" />
-          </label>
-          <label className="grid gap-2 text-sm font-semibold">
-            Link Video
-            <input value={videoLink} onChange={(event) => setVideoLink(event.target.value)} placeholder="https://drive.google.com/..." className="rounded-md border px-3 py-2 text-sm font-normal outline-none focus:border-newraj-gold" />
-          </label>
-          <label className="grid gap-2 text-sm font-semibold">
-            Detail Pengukuran
-            <textarea value={measurementNotes} onChange={(event) => setMeasurementNotes(event.target.value)} rows={6} required placeholder="Catatan ukuran, kondisi lokasi, kebutuhan material, akses, dan hal penting lain." className="resize-none rounded-md border px-3 py-2 text-sm font-normal outline-none focus:border-newraj-gold" />
-          </label>
-        </div>
-        <div className="mt-6 flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
-          <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Menyimpan..." : "Simpan Report"}</Button>
-        </div>
-      </form>
-    </div>
-  );
-}
 function RescheduleModal({
   item,
   onClose,

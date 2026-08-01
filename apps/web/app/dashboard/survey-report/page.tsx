@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeftIcon, CalendarDaysIcon, LinkIcon, MapPinIcon } from "@heroicons/react/24/outline";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
@@ -49,18 +49,11 @@ export default function SurveyReportPage() {
 function SurveyReportContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const selectedId = searchParams.get("id");
+  const selectedId = searchParams.get("report");
   const [currentUser, setCurrentUser] = useState<DashboardUser | null>(null);
   const [items, setItems] = useState<InvitationRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
-  const [photoLink, setPhotoLink] = useState("");
-  const [videoLink, setVideoLink] = useState("");
-  const [measurementNotes, setMeasurementNotes] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitMessage, setSubmitMessage] = useState("");
-
-  const selected = useMemo(() => items.find((item) => item.id === selectedId) ?? items[0] ?? null, [items, selectedId]);
 
   useEffect(() => {
     const token = window.localStorage.getItem("newraj_access_token");
@@ -102,38 +95,8 @@ function SurveyReportContent() {
     router.replace("/login");
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selected) return;
-    setError("");
-    setSubmitMessage("");
-    setIsSubmitting(true);
-    try {
-      const token = window.localStorage.getItem("newraj_access_token");
-      const response = await fetch(API_BASE_URL + "/invitation-requests/" + selected.id + "/survey-report", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + (token ?? ""),
-        },
-        body: JSON.stringify({ photoLink, videoLink, measurementNotes }),
-      });
-      const payload = (await response.json().catch(() => ({}))) as { data?: InvitationRequest; message?: string | string[] };
-      if (!response.ok || !payload.data) {
-        const message = Array.isArray(payload.message) ? payload.message.join(", ") : payload.message;
-        throw new Error(message || "Report survey gagal disimpan.");
-      }
-      setItems((current) => current.map((item) => (item.id === payload.data?.id ? payload.data : item)));
-      setPhotoLink("");
-      setVideoLink("");
-      setMeasurementNotes("");
-      setSubmitMessage("Report survey berhasil disimpan dan masuk ke Report List.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Report survey gagal disimpan.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
+  const reports = useMemo(() => items.flatMap((item) => (item.surveyReports || []).map((report) => ({ ...report, client: item }))), [items]);
+  const selectedReport = useMemo(() => reports.find((report) => report.id === selectedId) ?? null, [reports, selectedId]);
 
   return (
     <main className="min-h-screen bg-[#fbfaf7] text-newraj-ink">
@@ -147,100 +110,89 @@ function SurveyReportContent() {
                 Kembali ke List Survey
               </button>
               <h1 className="font-display text-4xl font-bold">Report List</h1>
-              <p className="mt-2 text-sm text-newraj-charcoal">Pantau semua report survey yang sudah tersimpan dan tambahkan report baru jika diperlukan.</p>
+              <p className="mt-2 text-sm text-newraj-charcoal">Lihat daftar report survey terlebih dahulu, lalu pilih report untuk melihat detailnya.</p>
             </div>
-            <Badge variant="muted">{items.length} Client Survey</Badge>
+            <Badge variant="muted">{reports.length} Report</Badge>
           </div>
 
           {isLoading ? <p className="mt-6 rounded-lg border bg-white p-5 text-sm text-muted-foreground">Memuat data survey...</p> : null}
           {error ? <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div> : null}
 
-          {!isLoading && selected ? (
-            <div className="mt-6 grid gap-5 xl:grid-cols-[0.8fr_1.2fr]">
-              <aside className="space-y-4">
-                <div className="rounded-lg border bg-white p-5 shadow-sm">
-                  <p className="text-xs font-semibold uppercase text-muted-foreground">Client Terpilih</p>
-                  <h2 className="mt-2 font-display text-2xl font-semibold">{selected.customerName}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">{selected.projectType}</p>
-                  <div className="mt-5 space-y-3 text-sm text-newraj-charcoal">
-                    <p className="flex gap-2"><CalendarDaysIcon className="h-5 w-5 text-newraj-gold" />{formatDateTime(selected.surveyDate)}</p>
-                    <p className="flex gap-2"><MapPinIcon className="h-5 w-5 text-newraj-gold" />{selected.projectAddress}</p>
-                  </div>
+          {!isLoading ? (
+            <div className="mt-6 grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+              <aside className="rounded-lg border bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="font-display text-2xl font-semibold">Report List</h2>
+                  <Badge variant="muted">{reports.length} report</Badge>
                 </div>
-
-                <div className="rounded-lg border bg-white p-5 shadow-sm">
-                  <p className="text-sm font-semibold">Pilih Client Lain</p>
-                  <div className="mt-4 space-y-2">
-                    {items.map((item) => (
+                {reports.length === 0 ? (
+                  <p className="mt-4 rounded-md border bg-[#faf9f5] p-4 text-sm text-muted-foreground">Belum ada report survey.</p>
+                ) : (
+                  <div className="mt-5 space-y-2">
+                    {reports.map((report) => (
                       <button
                         className={[
                           "w-full rounded-md border px-4 py-3 text-left text-sm transition-colors",
-                          item.id === selected.id ? "border-newraj-gold bg-[#fffaf0]" : "bg-white hover:border-newraj-gold/60",
+                          selectedReport?.id === report.id ? "border-newraj-gold bg-[#fffaf0]" : "bg-white hover:border-newraj-gold/60",
                         ].join(" ")}
-                        key={item.id}
-                        onClick={() => router.replace("/dashboard/survey-report?id=" + item.id)}
+                        key={report.id}
+                        onClick={() => router.replace("/dashboard/survey-report?report=" + report.id)}
                         type="button"
                       >
-                        <span className="block font-semibold">{item.customerName}</span>
-                        <span className="mt-1 block text-xs text-muted-foreground">{item.surveyReports?.length || 0} report</span>
+                        <span className="block font-semibold">{report.client.customerName}</span>
+                        <span className="mt-1 block text-xs text-muted-foreground">{formatDateTime(report.createdAt)}</span>
                       </button>
                     ))}
                   </div>
-                </div>
+                )}
               </aside>
 
-              <div className="space-y-5">
-                <form onSubmit={handleSubmit} className="rounded-lg border bg-white p-6 shadow-sm">
-                  <h2 className="font-display text-2xl font-semibold">Input Report</h2>
-                  <p className="mt-1 text-sm text-newraj-charcoal">Masukkan link foto/video dan detail pengukuran dari kunjungan survey.</p>
-                  {submitMessage ? <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{submitMessage}</div> : null}
-                  <div className="mt-5 grid gap-4">
-                    <label className="grid gap-2 text-sm font-semibold">
-                      Link Foto
-                      <input value={photoLink} onChange={(event) => setPhotoLink(event.target.value)} placeholder="https://drive.google.com/..." className="rounded-md border px-3 py-2 text-sm font-normal outline-none focus:border-newraj-gold" />
-                    </label>
-                    <label className="grid gap-2 text-sm font-semibold">
-                      Link Video
-                      <input value={videoLink} onChange={(event) => setVideoLink(event.target.value)} placeholder="https://drive.google.com/..." className="rounded-md border px-3 py-2 text-sm font-normal outline-none focus:border-newraj-gold" />
-                    </label>
-                    <label className="grid gap-2 text-sm font-semibold">
-                      Detail Pengukuran
-                      <textarea value={measurementNotes} onChange={(event) => setMeasurementNotes(event.target.value)} rows={7} required placeholder="Catatan ukuran, kondisi lokasi, kebutuhan material, akses, dan hal penting lain." className="resize-none rounded-md border px-3 py-2 text-sm font-normal outline-none focus:border-newraj-gold" />
-                    </label>
-                  </div>
-                  <div className="mt-6 flex justify-end">
-                    <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Menyimpan..." : "Simpan Report"}</Button>
-                  </div>
-                </form>
-
-                <div className="rounded-lg border bg-white p-6 shadow-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <h2 className="font-display text-2xl font-semibold">Report List</h2>
-                    <Badge variant="muted">{selected.surveyReports?.length || 0} report</Badge>
-                  </div>
-                  {(selected.surveyReports || []).length === 0 ? (
-                    <p className="mt-4 rounded-md border bg-[#faf9f5] p-4 text-sm text-muted-foreground">Belum ada report untuk client ini.</p>
-                  ) : (
-                    <div className="mt-5 space-y-3">
-                      {(selected.surveyReports || []).map((report) => (
-                        <article key={report.id} className="rounded-lg border bg-[#faf9f5] p-5">
-                          <p className="text-xs font-semibold uppercase text-muted-foreground">{formatDateTime(report.createdAt)}</p>
-                          <p className="mt-3 whitespace-pre-line text-sm leading-7 text-newraj-charcoal">{report.measurementNotes}</p>
-                          <div className="mt-4 flex flex-wrap gap-3 text-sm">
-                            {report.photoLink ? <ReportLink href={report.photoLink} label="Link Foto" /> : null}
-                            {report.videoLink ? <ReportLink href={report.videoLink} label="Link Video" /> : null}
-                          </div>
-                        </article>
-                      ))}
+              <section className="rounded-lg border bg-white p-6 shadow-sm">
+                {selectedReport ? (
+                  <div>
+                    <div className="flex flex-col gap-3 border-b pb-5 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-muted-foreground">Detail Report</p>
+                        <h2 className="mt-2 font-display text-3xl font-semibold">{selectedReport.client.customerName}</h2>
+                        <p className="mt-1 text-sm text-muted-foreground">{selectedReport.client.projectType}</p>
+                      </div>
+                      <Badge variant="muted">{formatDateTime(selectedReport.createdAt)}</Badge>
                     </div>
-                  )}
-                </div>
-              </div>
+                    <div className="mt-5 grid gap-4 md:grid-cols-2">
+                      <DetailCard label="Jadwal Survey" value={formatDateTime(selectedReport.client.surveyDate)} />
+                      <DetailCard label="Nomor WhatsApp" value={selectedReport.client.phone} />
+                    </div>
+                    <div className="mt-5 rounded-lg border bg-[#fffdf8] p-5">
+                      <p className="flex items-center gap-2 text-sm font-semibold"><MapPinIcon className="h-5 w-5 text-newraj-gold" />Alamat Project</p>
+                      <p className="mt-3 text-sm leading-7 text-newraj-charcoal">{selectedReport.client.projectAddress}</p>
+                    </div>
+                    <div className="mt-5 rounded-lg border bg-[#faf9f5] p-5">
+                      <p className="text-sm font-semibold">Detail Pengukuran</p>
+                      <p className="mt-3 whitespace-pre-line text-sm leading-7 text-newraj-charcoal">{selectedReport.measurementNotes}</p>
+                      <div className="mt-4 flex flex-wrap gap-3 text-sm">
+                        {selectedReport.photoLink ? <ReportLink href={selectedReport.photoLink} label="Link Foto" /> : null}
+                        {selectedReport.videoLink ? <ReportLink href={selectedReport.videoLink} label="Link Video" /> : null}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="rounded-md border bg-[#faf9f5] p-5 text-sm text-muted-foreground">Pilih report dari list untuk melihat detailnya.</p>
+                )}
+              </section>
             </div>
           ) : null}
         </section>
       </div>
     </main>
+  );
+}
+
+function DetailCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border bg-[#faf9f5] p-4">
+      <p className="text-xs font-semibold uppercase text-muted-foreground">{label}</p>
+      <p className="mt-2 text-sm font-semibold text-newraj-ink">{value || "-"}</p>
+    </div>
   );
 }
 

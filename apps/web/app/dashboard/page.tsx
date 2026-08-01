@@ -695,7 +695,7 @@ function SurveyDetail({ item, onUpdated }: { item: InvitationRequest; onUpdated:
         const message = Array.isArray(payload.message) ? payload.message.join(", ") : payload.message;
         throw new Error(message || "Approval surveyor gagal.");
       }
-      onUpdated(payload.data);
+      onUpdated({ ...payload.data, status: "approved", surveyorApprovedAt: payload.data.surveyorApprovedAt ?? new Date().toISOString() });
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Approval surveyor gagal.");
     } finally {

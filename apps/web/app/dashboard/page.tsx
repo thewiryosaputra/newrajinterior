@@ -527,6 +527,7 @@ function ProjectRow({
 }
 
 
+
 function SurveyorDashboard({
   invitations,
   isLoading,
@@ -541,18 +542,14 @@ function SurveyorDashboard({
   onRescheduled: (updated: InvitationRequest) => void;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = invitations.find((item) => item.id === selectedId) ?? invitations[0] ?? null;
-
-  useEffect(() => {
-    if (!selectedId && invitations[0]) setSelectedId(invitations[0].id);
-  }, [invitations, selectedId]);
+  const selected = invitations.find((item) => item.id === selectedId) ?? null;
 
   return (
     <section className="min-w-0 px-4 py-6 sm:px-6 xl:px-8">
       <header className="flex flex-col gap-3 border-b pb-5 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <h1 className="font-display text-4xl font-bold">Dashboard Surveyor</h1>
-          <p className="mt-2 text-sm text-newraj-charcoal">Selamat datang, {surveyorName}. Berikut client approved yang perlu disurvey.</p>
+          <h1 className="font-display text-4xl font-bold">List Client Survey</h1>
+          <p className="mt-2 text-sm text-newraj-charcoal">Selamat datang, {surveyorName}. Pilih client approved yang akan dikunjungi.</p>
         </div>
         <Badge variant="warning">{invitations.length} Jadwal Survey</Badge>
       </header>
@@ -564,37 +561,87 @@ function SurveyorDashboard({
       ) : invitations.length === 0 ? (
         <p className="mt-6 rounded-lg border bg-white p-5 text-sm text-muted-foreground">Belum ada client approved untuk disurvey.</p>
       ) : (
-        <div className="mt-6 grid gap-5 xl:grid-cols-[420px_1fr]">
-          <div className="space-y-3">
-            {invitations.map((item) => (
-              <button
-                className={[
-                  "w-full rounded-lg border bg-white p-5 text-left shadow-sm transition-colors",
-                  selected?.id === item.id ? "border-newraj-gold bg-[#fffaf0]" : "hover:border-newraj-gold/60",
-                ].join(" ")}
-                key={item.id}
-                onClick={() => setSelectedId(item.id)}
-                type="button"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">{item.customerName}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{item.projectType}</p>
-                  </div>
-                  <Badge variant="success">Approved</Badge>
-                </div>
-                <div className="mt-4 grid gap-2 text-sm text-newraj-charcoal">
-                  <span className="flex items-center gap-2"><CalendarDaysIcon className="h-4 w-4 text-newraj-gold" />{formatDateTime(item.surveyDate)}</span>
-                  <span className="flex items-center gap-2"><MapPinIcon className="h-4 w-4 text-newraj-gold" />{item.projectAddress}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-
-          {selected ? <SurveyDetail item={selected} onRescheduled={onRescheduled} /> : null}
+        <div className="mt-6 overflow-hidden rounded-lg border bg-white shadow-sm">
+          <table className="w-full min-w-[980px] border-collapse text-left text-sm">
+            <thead className="bg-[#faf9f5] text-xs text-newraj-charcoal">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Client</th>
+                <th className="px-4 py-3 font-semibold">Tanggal</th>
+                <th className="px-4 py-3 font-semibold">Waktu</th>
+                <th className="px-4 py-3 font-semibold">Lokasi</th>
+                <th className="px-4 py-3 font-semibold">Project</th>
+                <th className="px-4 py-3 font-semibold">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y bg-white">
+              {invitations.map((item) => {
+                const googleMapsUrl = "https://www.google.com/maps/dir/?api=1&destination=" + item.latitude + "," + item.longitude + "&travelmode=driving";
+                return (
+                  <tr key={item.id} className="hover:bg-[#fffaf0]">
+                    <td className="px-4 py-4">
+                      <p className="font-semibold">{item.customerName}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{item.phone}</p>
+                    </td>
+                    <td className="px-4 py-4 text-muted-foreground">{formatDate(item.surveyDate)}</td>
+                    <td className="px-4 py-4 text-muted-foreground">{formatTime(item.surveyDate)}</td>
+                    <td className="px-4 py-4">
+                      <div className="max-w-[300px]">
+                        <p className="line-clamp-2 leading-6">{item.projectAddress}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{item.latitude}, {item.longitude}</p>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4"><Badge variant="muted">{item.projectType}</Badge></td>
+                    <td className="px-4 py-4">
+                      <div className="flex gap-2">
+                        <Button size="sm" type="button" onClick={() => setSelectedId(item.id)}>
+                          Lihat Detail
+                        </Button>
+                        <Button asChild size="sm" className="bg-white text-foreground shadow-sm hover:bg-muted" variant="outline">
+                          <a href={googleMapsUrl} target="_blank" rel="noreferrer">Visit</a>
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
+
+      {selected ? (
+        <SurveyDetailModal
+          item={selected}
+          onClose={() => setSelectedId(null)}
+          onRescheduled={onRescheduled}
+        />
+      ) : null}
     </section>
+  );
+}
+
+function SurveyDetailModal({
+  item,
+  onClose,
+  onRescheduled,
+}: {
+  item: InvitationRequest;
+  onClose: () => void;
+  onRescheduled: (updated: InvitationRequest) => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[1400] overflow-y-auto bg-black/55 px-4 py-6" role="dialog" aria-modal="true">
+      <div className="mx-auto max-w-6xl rounded-lg bg-[#fbfaf7] p-4 shadow-soft sm:p-6">
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <div>
+            <h2 className="font-display text-3xl font-semibold">Detail Survey</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{item.customerName}</p>
+          </div>
+          <Button className="bg-white text-foreground shadow-sm hover:bg-muted" variant="outline" type="button" onClick={onClose}>Tutup</Button>
+        </div>
+        <SurveyDetail item={item} onRescheduled={onRescheduled} />
+      </div>
+    </div>
   );
 }
 
@@ -610,7 +657,7 @@ function SurveyDetail({ item, onRescheduled }: { item: InvitationRequest; onResc
           <h2 className="font-display text-3xl font-semibold">{item.customerName}</h2>
           <p className="mt-2 text-sm text-muted-foreground">{item.projectType}</p>
         </div>
-<div className="flex flex-col gap-3 sm:flex-row">
+        <div className="flex flex-col gap-3 sm:flex-row">
           <Button className="h-11 bg-white text-foreground shadow-sm hover:bg-muted" type="button" variant="outline" onClick={() => setIsModalOpen(true)}>
             <CalendarDaysIcon className="h-5 w-5" />
             Ubah Jadwal
@@ -618,7 +665,7 @@ function SurveyDetail({ item, onRescheduled }: { item: InvitationRequest; onResc
           <Button asChild className="h-11">
             <a href={googleMapsUrl} target="_blank" rel="noreferrer">
               <MapPinIcon className="h-5 w-5" />
-              Navigasikan ke Google
+              Visit
             </a>
           </Button>
         </div>
@@ -626,9 +673,9 @@ function SurveyDetail({ item, onRescheduled }: { item: InvitationRequest; onResc
 
       <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <DetailBox label="Nomor WhatsApp" value={item.phone} />
-        <DetailBox label="Tanggal & Waktu" value={formatDateTime(item.surveyDate)} />
-        <DetailBox label="Latitude" value={String(item.latitude)} />
-        <DetailBox label="Longitude" value={String(item.longitude)} />
+        <DetailBox label="Tanggal" value={formatDate(item.surveyDate)} />
+        <DetailBox label="Waktu" value={formatTime(item.surveyDate)} />
+        <DetailBox label="Koordinat" value={item.latitude + ", " + item.longitude} />
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
@@ -682,82 +729,103 @@ function RescheduleModal({
 }) {
   const [date, setDate] = useState(toDateInputValue(item.surveyDate));
   const [time, setTime] = useState(toTimeInputValue(item.surveyDate));
-  const [reason, setReason] = useState(item.surveyRescheduleNote || "");
+  const [note, setNote] = useState(item.surveyRescheduleNote ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
-  async function submitReschedule(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
+    setError("");
     setIsSubmitting(true);
+
     try {
-      const token = window.localStorage.getItem("newraj_access_token");
-      const response = await fetch(`${API_BASE_URL}/invitation-requests/${item.id}/reschedule-survey`, {
+      const token = typeof window !== "undefined" ? window.localStorage.getItem("newraj_token") : null;
+      const response = await fetch(API_BASE_URL + "/invitation-requests/" + item.id + "/reschedule-survey", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token ?? ""}`,
+          Authorization: "Bearer " + (token ?? ""),
         },
         body: JSON.stringify({
           surveyDate: toApiDateTimeFromInputs(date, time),
-          reason: reason.trim(),
+          note,
         }),
       });
       const payload = (await response.json().catch(() => ({}))) as { data?: InvitationRequest; message?: string | string[] };
+
       if (!response.ok || !payload.data) {
-        setError(formatApiMessage(payload.message) || "Jadwal gagal diubah.");
-        return;
+        const message = Array.isArray(payload.message) ? payload.message.join(", ") : payload.message;
+        throw new Error(message || "Jadwal survey gagal diubah.");
       }
+
       onSuccess(payload.data);
     } catch (err) {
-      setError("Tidak bisa terhubung ke API jadwal.");
+      setError(err instanceof Error ? err.message : "Jadwal survey gagal diubah.");
     } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/55 px-4 py-6" role="dialog" aria-modal="true">
-      <form className="w-full max-w-xl rounded-lg border bg-white p-6 shadow-soft" onSubmit={submitReschedule}>
-        <div className="flex items-start justify-between gap-4 border-b pb-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <form onSubmit={handleSubmit} className="w-full max-w-lg rounded-lg border bg-white p-6 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="font-display text-2xl font-semibold">Ubah Jadwal Survey</h3>
-            <p className="mt-1 text-sm text-muted-foreground">{item.customerName}</p>
+            <h3 className="font-display text-2xl font-bold">Ubah Jadwal Survey</h3>
+            <p className="mt-1 text-sm text-newraj-charcoal">Client akan menerima notifikasi WhatsApp setelah jadwal disimpan.</p>
           </div>
-          <button className="rounded-md px-3 py-2 text-sm font-semibold hover:bg-muted" type="button" onClick={onClose}>Batal</button>
+          <button type="button" onClick={onClose} className="rounded-md border px-3 py-1 text-sm text-newraj-charcoal">
+            Tutup
+          </button>
         </div>
 
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="text-sm font-semibold" htmlFor="reschedule-date">Tanggal</label>
-            <input id="reschedule-date" className="mt-2 h-11 w-full rounded-md border px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" type="date" value={date} onChange={(event) => setDate(event.target.value)} required />
-          </div>
-          <div>
-            <label className="text-sm font-semibold" htmlFor="reschedule-time">Waktu</label>
-            <input id="reschedule-time" className="mt-2 h-11 w-full rounded-md border px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" type="time" value={time} onChange={(event) => setTime(event.target.value)} required />
-          </div>
+        {error ? <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+
+        <div className="mt-5 grid gap-4">
+          <label className="grid gap-2 text-sm font-semibold">
+            Tanggal
+            <input
+              type="date"
+              value={date}
+              onChange={(event) => setDate(event.target.value)}
+              required
+              className="rounded-md border px-3 py-2 text-sm font-normal outline-none focus:border-newraj-gold"
+            />
+          </label>
+          <label className="grid gap-2 text-sm font-semibold">
+            Waktu
+            <input
+              type="time"
+              value={time}
+              onChange={(event) => setTime(event.target.value)}
+              required
+              className="rounded-md border px-3 py-2 text-sm font-normal outline-none focus:border-newraj-gold"
+            />
+          </label>
+          <label className="grid gap-2 text-sm font-semibold">
+            Alasan atau catatan
+            <textarea
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              rows={4}
+              placeholder="Contoh: Client minta jadwal sore karena ada kegiatan pagi."
+              className="resize-none rounded-md border px-3 py-2 text-sm font-normal outline-none focus:border-newraj-gold"
+            />
+          </label>
         </div>
 
-        <div className="mt-4">
-          <label className="text-sm font-semibold" htmlFor="reschedule-reason">Alasan atau Catatan</label>
-          <textarea id="reschedule-reason" className="mt-2 min-h-28 w-full resize-none rounded-md border px-3 py-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="Contoh: Surveyor perlu menyesuaikan jadwal kunjungan karena agenda lapangan." value={reason} onChange={(event) => setReason(event.target.value)} required />
-        </div>
-
-        {error ? <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
-
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <Button className="h-12 flex-1" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Menyimpan..." : "Simpan & Kirim Notifikasi"}
-          </Button>
-          <Button className="h-12 flex-1 bg-white text-foreground shadow-sm hover:bg-muted" type="button" variant="outline" onClick={onClose}>
+        <div className="mt-6 flex justify-end gap-3">
+          <Button type="button" variant="outline" onClick={onClose}>
             Batal
+          </Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Menyimpan..." : "Simpan Jadwal"}
           </Button>
         </div>
       </form>
     </div>
   );
 }
-
 function ClientInvitationDetail({ item }: { item: InvitationRequest }) {
   return (
     <section className="rounded-lg border bg-white p-6 shadow-sm">
@@ -816,6 +884,14 @@ function formatDate(value: string) {
     day: "2-digit",
     month: "short",
     year: "numeric",
+  }).format(new Date(value));
+}
+
+function formatTime(value: string) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(new Date(value));
 }
 

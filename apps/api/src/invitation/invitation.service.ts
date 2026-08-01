@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+﻿import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
@@ -119,10 +119,24 @@ export class InvitationService {
 
   async listRequests() {
     const result = await this.db.query(
-      `SELECT id, customer_name, phone, email, survey_date, project_type, estimated_budget,
-        project_address, latitude, longitude, notes, status, email_verified_at, whatsapp_verified_at, approved_at, user_id, created_at
-       FROM invitation_requests
-       ORDER BY created_at DESC
+      `SELECT ir.id, ir.customer_name, ir.phone, ir.email, ir.survey_date, ir.project_type, ir.estimated_budget,
+        ir.project_address, ir.latitude, ir.longitude, ir.notes, ir.survey_reschedule_note, ir.surveyor_approved_at, ir.status, ir.email_verified_at, ir.whatsapp_verified_at, ir.approved_at, ir.user_id, ir.created_at,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', sr.id,
+              'photoLink', sr.photo_link,
+              'videoLink', sr.video_link,
+              'measurementNotes', sr.measurement_notes,
+              'createdAt', sr.created_at
+            ) ORDER BY sr.created_at DESC
+          ) FILTER (WHERE sr.id IS NOT NULL),
+          '[]'::json
+        ) AS survey_reports
+       FROM invitation_requests ir
+       LEFT JOIN survey_reports sr ON sr.invitation_request_id = ir.id
+       GROUP BY ir.id
+       ORDER BY ir.created_at DESC
        LIMIT 50`,
     );
     return { data: result.rows.map(mapInvitation) };
@@ -131,11 +145,25 @@ export class InvitationService {
   async listMyRequests(authHeader?: string) {
     const user = await this.requireUser(authHeader);
     const result = await this.db.query(
-      `SELECT id, customer_name, phone, email, survey_date, project_type, estimated_budget,
-        project_address, latitude, longitude, notes, status, email_verified_at, whatsapp_verified_at, approved_at, user_id, created_at
-       FROM invitation_requests
-       WHERE user_id = $1 OR phone = $2
-       ORDER BY created_at DESC
+      `SELECT ir.id, ir.customer_name, ir.phone, ir.email, ir.survey_date, ir.project_type, ir.estimated_budget,
+        ir.project_address, ir.latitude, ir.longitude, ir.notes, ir.survey_reschedule_note, ir.surveyor_approved_at, ir.status, ir.email_verified_at, ir.whatsapp_verified_at, ir.approved_at, ir.user_id, ir.created_at,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', sr.id,
+              'photoLink', sr.photo_link,
+              'videoLink', sr.video_link,
+              'measurementNotes', sr.measurement_notes,
+              'createdAt', sr.created_at
+            ) ORDER BY sr.created_at DESC
+          ) FILTER (WHERE sr.id IS NOT NULL),
+          '[]'::json
+        ) AS survey_reports
+       FROM invitation_requests ir
+       LEFT JOIN survey_reports sr ON sr.invitation_request_id = ir.id
+       WHERE ir.user_id = $1 OR ir.phone = $2
+       GROUP BY ir.id
+       ORDER BY ir.created_at DESC
        LIMIT 20`,
       [user.sub, user.phone],
     );
@@ -144,10 +172,24 @@ export class InvitationService {
 
   async getRequest(id: string) {
     const result = await this.db.query(
-      `SELECT id, customer_name, phone, email, survey_date, project_type, estimated_budget,
-        project_address, latitude, longitude, notes, status, email_verified_at, whatsapp_verified_at, approved_at, user_id, created_at
-       FROM invitation_requests
-       WHERE id = $1`,
+      `SELECT ir.id, ir.customer_name, ir.phone, ir.email, ir.survey_date, ir.project_type, ir.estimated_budget,
+        ir.project_address, ir.latitude, ir.longitude, ir.notes, ir.survey_reschedule_note, ir.surveyor_approved_at, ir.status, ir.email_verified_at, ir.whatsapp_verified_at, ir.approved_at, ir.user_id, ir.created_at,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', sr.id,
+              'photoLink', sr.photo_link,
+              'videoLink', sr.video_link,
+              'measurementNotes', sr.measurement_notes,
+              'createdAt', sr.created_at
+            ) ORDER BY sr.created_at DESC
+          ) FILTER (WHERE sr.id IS NOT NULL),
+          '[]'::json
+        ) AS survey_reports
+       FROM invitation_requests ir
+       LEFT JOIN survey_reports sr ON sr.invitation_request_id = ir.id
+       WHERE ir.id = $1
+       GROUP BY ir.id`,
       [id],
     );
     const row = result.rows[0];
@@ -204,7 +246,7 @@ export class InvitationService {
     const surveyor = await this.requireSurveyor(authHeader);
     const result = await this.db.query(
       `UPDATE invitation_requests
-       SET surveyor_approved_at = now(), surveyor_approved_by = $2, updated_at = now()
+       SET status = 'approved', surveyor_approved_at = now(), surveyor_approved_by = $2, updated_at = now()
        WHERE id = $1 AND (status = 'approved' OR approved_at IS NOT NULL)
        RETURNING id, customer_name, phone, email, survey_date, project_type, estimated_budget,
         project_address, latitude, longitude, notes, survey_reschedule_note, surveyor_approved_at, status, email_verified_at, whatsapp_verified_at, approved_at, user_id, created_at`,
@@ -357,6 +399,8 @@ function mapInvitation(row: Record<string, unknown>) {
     longitude: Number(row.longitude),
     notes: row.notes,
     surveyRescheduleNote: row.survey_reschedule_note,
+    surveyorApprovedAt: row.surveyor_approved_at,
+    surveyReports: normalizeSurveyReports(row.survey_reports),
     status: row.status,
     emailVerified: Boolean(row.email_verified_at),
     whatsappVerified: Boolean(row.whatsapp_verified_at),
@@ -364,6 +408,19 @@ function mapInvitation(row: Record<string, unknown>) {
     userId: row.user_id,
     createdAt: row.created_at,
   };
+}
+
+function normalizeSurveyReports(value: unknown) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
 }
 
 function internalEmailFromPhone(phone: string) {

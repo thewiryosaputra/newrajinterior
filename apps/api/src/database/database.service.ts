@@ -110,6 +110,23 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ
     `);
     await this.query(`
+      CREATE TABLE IF NOT EXISTS survey_reports (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        invitation_request_id UUID NOT NULL REFERENCES invitation_requests(id) ON DELETE CASCADE,
+        submitted_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        photo_link TEXT,
+        video_link TEXT,
+        measurement_notes TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `);
+
+    await this.query(`
+      CREATE INDEX IF NOT EXISTS idx_survey_reports_invitation_request
+        ON survey_reports (invitation_request_id, created_at DESC)
+    `);
+
+    await this.query(`
       CREATE INDEX IF NOT EXISTS idx_invitation_links_lookup
         ON invitation_links (token_hash, expires_at)
         WHERE used_at IS NULL

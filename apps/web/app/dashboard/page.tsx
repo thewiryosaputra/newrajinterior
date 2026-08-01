@@ -353,7 +353,7 @@ export default function DashboardPage() {
                         <div className="flex items-start justify-between gap-4">
                           <div className="min-w-0">
                             <p className="font-semibold leading-5">{item.customerName}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">{item.projectType} â€¢ {item.estimatedBudget}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{item.projectType} • {item.estimatedBudget}</p>
                           </div>
                           <InvitationStatusBadge item={item} />
                         </div>
@@ -767,8 +767,8 @@ function RescheduleModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-lg rounded-lg border bg-white p-6 shadow-2xl">
+    <div className="fixed inset-0 z-[1600] flex items-center justify-center bg-black/60 p-4">
+      <form onSubmit={handleSubmit} className="relative z-[1601] w-full max-w-lg rounded-lg border bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="font-display text-2xl font-bold">Ubah Jadwal Survey</h3>

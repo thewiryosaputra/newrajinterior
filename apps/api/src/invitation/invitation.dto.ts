@@ -81,3 +81,30 @@ export class SubmitSurveyReportDto {
   measurementNotes!: string;
 }
 
+
+export class CreateDesignPresentationDto {
+  @IsString()
+  @IsNotEmpty()
+  reportId!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  title!: string;
+
+  @IsDateString()
+  presentationDate!: string;
+}
+
+export class RespondDesignPresentationDto {
+  @IsString()
+  @IsNotEmpty()
+  action!: string;
+
+  @IsDateString()
+  @IsOptional()
+  requestedDate?: string;
+
+  @IsString()
+  @IsOptional()
+  note?: string;
+}

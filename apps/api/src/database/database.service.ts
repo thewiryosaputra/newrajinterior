@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+﻿import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as bcrypt from "bcryptjs";
 import { readFileSync } from "node:fs";
@@ -128,6 +128,26 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     `);
 
     await this.query(`
+      CREATE TABLE IF NOT EXISTS design_presentations (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        invitation_request_id UUID NOT NULL REFERENCES invitation_requests(id) ON DELETE CASCADE,
+        survey_report_id UUID REFERENCES survey_reports(id) ON DELETE SET NULL,
+        title TEXT NOT NULL,
+        presentation_date TIMESTAMPTZ NOT NULL,
+        status TEXT NOT NULL DEFAULT 'scheduled',
+        client_note TEXT,
+        created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `);
+
+    await this.query(`
+      CREATE INDEX IF NOT EXISTS idx_design_presentations_request
+        ON design_presentations (invitation_request_id, created_at DESC)
+    `);
+
+    await this.query(`
       CREATE INDEX IF NOT EXISTS idx_invitation_links_lookup
         ON invitation_links (token_hash, expires_at)
         WHERE used_at IS NULL
@@ -182,3 +202,4 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     );
   }
 }
+

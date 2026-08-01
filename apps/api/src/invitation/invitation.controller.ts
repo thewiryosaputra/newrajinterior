@@ -1,5 +1,5 @@
-import { Body, Controller, Delete, Get, Headers, Param, Post, Query } from "@nestjs/common";
-import { CreateInvitationLinkDto, CreateInvitationRequestDto, RescheduleSurveyDto, SubmitSurveyReportDto, VerifyInvitationWhatsappDto } from "./invitation.dto";
+﻿import { Body, Controller, Delete, Get, Headers, Param, Post, Query } from "@nestjs/common";
+import { CreateDesignPresentationDto, CreateInvitationLinkDto, CreateInvitationRequestDto, RespondDesignPresentationDto, RescheduleSurveyDto, SubmitSurveyReportDto, VerifyInvitationWhatsappDto } from "./invitation.dto";
 import { InvitationService } from "./invitation.service";
 
 @Controller("invitation-requests")
@@ -46,6 +46,21 @@ export class InvitationController {
     return this.invitation.verifyWhatsapp(dto);
   }
 
+  @Get("design-presentations")
+  listDesignPresentations(@Headers("authorization") authorization?: string) {
+    return this.invitation.listDesignPresentations(authorization);
+  }
+
+  @Get("my-design-presentations")
+  listMyDesignPresentations(@Headers("authorization") authorization?: string) {
+    return this.invitation.listMyDesignPresentations(authorization);
+  }
+
+  @Post("design-presentations/:id/respond")
+  respondDesignPresentation(@Param("id") id: string, @Body() dto: RespondDesignPresentationDto, @Headers("authorization") authorization?: string) {
+    return this.invitation.respondDesignPresentation(id, dto, authorization);
+  }
+
   @Post(":id/approve")
   approveRequest(@Param("id") id: string, @Headers("authorization") authorization?: string) {
     return this.invitation.approveRequest(id, authorization);
@@ -61,6 +76,11 @@ export class InvitationController {
     return this.invitation.rescheduleSurvey(id, dto, authorization);
   }
 
+  @Post(":id/design-presentations")
+  createDesignPresentation(@Param("id") id: string, @Body() dto: CreateDesignPresentationDto, @Headers("authorization") authorization?: string) {
+    return this.invitation.createDesignPresentation(id, dto, authorization);
+  }
+
   @Post(":id/survey-report")
   submitSurveyReport(@Param("id") id: string, @Body() dto: SubmitSurveyReportDto, @Headers("authorization") authorization?: string) {
     return this.invitation.submitSurveyReport(id, dto, authorization);
@@ -71,3 +91,4 @@ export class InvitationController {
     return this.invitation.getRequest(id);
   }
 }
+

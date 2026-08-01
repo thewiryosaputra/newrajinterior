@@ -106,6 +106,16 @@ export class VerificationService {
       "Halo " + input.customerName + ", jadwal kunjungan survey New Raj Interior Anda telah diubah menjadi " + formattedDate + ".\n\nCatatan: " + input.reason + "\n\nSilakan hubungi tim kami jika jadwal tersebut perlu disesuaikan kembali.",
     );
   }
+
+  async sendDesignPresentationWhatsapp(input: { phone: string; customerName: string; title: string; presentationDate: Date }) {
+    const formattedDate = this.formatJakartaDate(input.presentationDate);
+    const appUrl = this.config.get<string>("APP_URL", "https://crm.newrajinterior.xyz");
+
+    await this.sendWhatsapp(
+      input.phone,
+      "Halo " + input.customerName + ", jadwal presentasi design New Raj Interior untuk \"" + input.title + "\" adalah " + formattedDate + ".\n\nSilakan login ke dashboard client untuk konfirmasi bisa hadir, reschedule, pending, atau batal: " + appUrl + "/dashboard",
+    );
+  }
   async sendWhatsappOtp(target: string, userId?: string) {
     const otp = String(randomInt(100000, 999999));
     await this.storeToken({ target: normalizePhone(target), channel: "whatsapp", token: otp, userId, minutes: 10 });
@@ -252,3 +262,4 @@ export function normalizePhone(value: string) {
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
+

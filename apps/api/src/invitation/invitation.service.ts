@@ -4,7 +4,7 @@ import * as bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { DatabaseService } from "../database/database.service";
 import { hashToken, normalizePhone, VerificationService } from "../verification/verification.service";
-import { CreateInvitationLinkDto, CreateInvitationRequestDto, RescheduleSurveyDto, SubmitSurveyReportDto, VerifyInvitationWhatsappDto } from "./invitation.dto";
+import { CreateDesignPresentationDto, CreateInvitationLinkDto, CreateInvitationRequestDto, RespondDesignPresentationDto, RescheduleSurveyDto, SubmitSurveyReportDto, VerifyInvitationWhatsappDto } from "./invitation.dto";
 
 @Injectable()
 export class InvitationService {
@@ -311,6 +311,89 @@ export class InvitationService {
     return { data: mapInvitation(result.rows[0]), message: "Report survey berhasil disimpan." };
   }
 
+  async listDesignPresentations(authHeader?: string) {
+    await this.requireDesigner(authHeader);
+    const result = await this.db.query(`
+      SELECT dp.id, dp.title, dp.presentation_date, dp.status, dp.client_note, dp.created_at,
+        ir.id AS invitation_request_id, ir.customer_name, ir.phone, ir.project_type, ir.project_address
+      FROM design_presentations dp
+      JOIN invitation_requests ir ON ir.id = dp.invitation_request_id
+      ORDER BY dp.created_at DESC
+      LIMIT 100
+    `);
+    return { data: result.rows.map(mapDesignPresentation) };
+  }
+
+  async listMyDesignPresentations(authHeader?: string) {
+    const user = await this.requireUser(authHeader);
+    const result = await this.db.query(`
+      SELECT dp.id, dp.title, dp.presentation_date, dp.status, dp.client_note, dp.created_at,
+        ir.id AS invitation_request_id, ir.customer_name, ir.phone, ir.project_type, ir.project_address
+      FROM design_presentations dp
+      JOIN invitation_requests ir ON ir.id = dp.invitation_request_id
+      WHERE ir.user_id = $1 OR ir.phone = $2
+      ORDER BY dp.created_at DESC
+      LIMIT 50
+    `, [user.sub, user.phone]);
+    return { data: result.rows.map(mapDesignPresentation) };
+  }
+
+  async createDesignPresentation(id: string, dto: CreateDesignPresentationDto, authHeader?: string) {
+    const designer = await this.requireDesigner(authHeader);
+    const request = await this.db.query<{ id: string; customer_name: string; phone: string }>(
+      `SELECT id, customer_name, phone FROM invitation_requests WHERE id = $1 AND (status = 'approved' OR approved_at IS NOT NULL)`,
+      [id],
+    );
+    const row = request.rows[0];
+    if (!row) throw new NotFoundException("Client report tidak ditemukan atau belum approved.");
+    const result = await this.db.query(`
+      INSERT INTO design_presentations (invitation_request_id, survey_report_id, title, presentation_date, created_by)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id, title, presentation_date, status, client_note, created_at
+    `, [id, dto.reportId, dto.title.trim(), dto.presentationDate, designer.sub]);
+    await this.verification.sendDesignPresentationWhatsapp({ phone: row.phone, customerName: row.customer_name, title: dto.title.trim(), presentationDate: new Date(dto.presentationDate) });
+    return { data: { ...result.rows[0], invitationRequestId: id }, message: "Design dibuat dan jadwal presentasi dikirim ke client." };
+  }
+
+  async respondDesignPresentation(id: string, dto: RespondDesignPresentationDto, authHeader?: string) {
+    const user = await this.requireUser(authHeader);
+    const current = await this.db.query<{ presentation_date: Date; phone: string; user_id: string | null }>(`
+      SELECT dp.presentation_date, ir.phone, ir.user_id
+      FROM design_presentations dp JOIN invitation_requests ir ON ir.id = dp.invitation_request_id
+      WHERE dp.id = $1 AND (ir.user_id = $2 OR ir.phone = $3)
+    `, [id, user.sub, user.phone]);
+    const row = current.rows[0];
+    if (!row) throw new NotFoundException("Jadwal presentasi design tidak ditemukan.");
+    let status = dto.action;
+    let nextDate = dto.requestedDate ?? null;
+    if (dto.action === "reschedule") {
+      if (!dto.requestedDate) throw new BadRequestException("Tanggal reschedule wajib diisi.");
+      const original = new Date(row.presentation_date);
+      const requested = new Date(dto.requestedDate);
+      const max = new Date(original);
+      max.setDate(max.getDate() + 7);
+      if (requested > max) throw new BadRequestException("Reschedule maksimal 7 hari dari jadwal presentasi awal.");
+    }
+    if (dto.action === "approve") status = "approved";
+    if (dto.action === "cancel") status = "cancelled";
+    const result = await this.db.query(`
+      UPDATE design_presentations SET status = $2, presentation_date = COALESCE($3, presentation_date), client_note = $4, updated_at = now()
+      WHERE id = $1
+      RETURNING id, title, presentation_date, status, client_note, created_at
+    `, [id, status, nextDate, dto.note ?? null]);
+
+    if (status === "cancelled") {
+      await this.db.query(`
+        UPDATE invitation_requests ir
+        SET status = 'cancelled', updated_at = now()
+        FROM design_presentations dp
+        WHERE dp.id = $1 AND ir.id = dp.invitation_request_id
+      `, [id]);
+    }
+
+    return { data: result.rows[0], message: "Response jadwal design berhasil disimpan." };
+  }
+
   async rescheduleSurvey(id: string, dto: RescheduleSurveyDto, authHeader?: string) {
     await this.requireSurveyor(authHeader);
     const result = await this.db.query(
@@ -366,6 +449,15 @@ export class InvitationService {
     if (payload.role !== "surveyor" && payload.role !== "admin") throw new ForbiddenException("Hanya surveyor yang boleh mengubah jadwal survey.");
     return payload;
   }
+  private async requireDesigner(authHeader?: string) {
+    const token = authHeader?.replace(/^Bearer\s+/i, "");
+    if (!token) throw new UnauthorizedException("Login designer diperlukan.");
+    const payload = await this.jwt.verifyAsync<{ sub: string; role: string }>(token).catch(() => null);
+    if (!payload) throw new UnauthorizedException("Token login tidak valid.");
+    if (payload.role !== "designer" && payload.role !== "admin") throw new ForbiddenException("Hanya designer yang boleh membuat design.");
+    return payload;
+  }
+
   private async requireUser(authHeader?: string) {
     const token = authHeader?.replace(/^Bearer\s+/i, "");
     if (!token) throw new UnauthorizedException("Login diperlukan.");
@@ -423,6 +515,24 @@ function normalizeSurveyReports(value: unknown) {
   return [];
 }
 
+function mapDesignPresentation(row: Record<string, unknown>) {
+  return {
+    id: row.id,
+    title: row.title,
+    presentationDate: row.presentation_date,
+    status: row.status,
+    clientNote: row.client_note,
+    createdAt: row.created_at,
+    invitationRequestId: row.invitation_request_id,
+    customerName: row.customer_name,
+    phone: row.phone,
+    projectType: row.project_type,
+    projectAddress: row.project_address,
+  };
+}
+
 function internalEmailFromPhone(phone: string) {
   return `${phone.replace(/[^0-9]/g, "")}@wa.newraj.local`;
 }
+
+

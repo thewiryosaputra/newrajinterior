@@ -138,7 +138,7 @@ function SurveyReportContent() {
   return (
     <main className="min-h-screen bg-[#fbfaf7] text-newraj-ink">
       <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
-        <DashboardSidebar activeItem="Survey" user={currentUser} onLogout={handleLogout} />
+        <DashboardSidebar activeItem="Report List" user={currentUser} onLogout={handleLogout} />
         <section className="min-w-0 px-4 py-6 sm:px-6 xl:px-8">
           <div className="flex flex-col gap-4 border-b pb-5 xl:flex-row xl:items-end xl:justify-between">
             <div>
@@ -146,8 +146,8 @@ function SurveyReportContent() {
                 <ArrowLeftIcon className="h-4 w-4" />
                 Kembali ke List Survey
               </button>
-              <h1 className="font-display text-4xl font-bold">Report Survey</h1>
-              <p className="mt-2 text-sm text-newraj-charcoal">Input hasil dokumentasi dan pengukuran survey, lalu pantau report yang sudah tersimpan.</p>
+              <h1 className="font-display text-4xl font-bold">Report List</h1>
+              <p className="mt-2 text-sm text-newraj-charcoal">Pantau semua report survey yang sudah tersimpan dan tambahkan report baru jika diperlukan.</p>
             </div>
             <Badge variant="muted">{items.length} Client Survey</Badge>
           </div>
@@ -272,4 +272,5 @@ function safeParseUser(value: string): DashboardUser | null {
     return null;
   }
 }
+
 

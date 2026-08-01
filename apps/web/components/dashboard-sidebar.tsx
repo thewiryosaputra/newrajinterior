@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -43,6 +43,7 @@ const navItems: NavItem[] = [
   { label: "Invitation", href: "/dashboard/invitation", icon: EnvelopeIcon, adminOnly: true },
   { label: "Prospect Client", href: "/dashboard/prospect-client", icon: UserPlusIcon, adminOnly: true },
   { label: "Survey", href: "/dashboard", icon: MapPinIcon, surveyorOnly: true },
+  { label: "Report List", href: "/dashboard/survey-report", icon: ClipboardDocumentListIcon, surveyorOnly: true },
   { label: "Project", icon: BriefcaseIcon },
   { label: "BOQ", icon: ClipboardDocumentListIcon },
   { label: "Kontrak", icon: DocumentTextIcon },
@@ -121,3 +122,4 @@ export function DashboardSidebar({ activeItem, user, onLogout }: { activeItem: s
     </aside>
   );
 }
+

@@ -4,7 +4,7 @@ import * as bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { DatabaseService } from "../database/database.service";
 import { hashToken, normalizePhone, VerificationService } from "../verification/verification.service";
-import { CreateInvitationLinkDto, CreateInvitationRequestDto, VerifyInvitationWhatsappDto } from "./invitation.dto";
+import { CreateInvitationLinkDto, CreateInvitationRequestDto, RescheduleSurveyDto, VerifyInvitationWhatsappDto } from "./invitation.dto";
 
 @Injectable()
 export class InvitationService {
@@ -200,6 +200,28 @@ export class InvitationService {
     return { approved: true, message: "Request disetujui. Akun client sudah aktif dan pemberitahuan login dikirim lewat WhatsApp." };
   }
 
+  async rescheduleSurvey(id: string, dto: RescheduleSurveyDto, authHeader?: string) {
+    await this.requireSurveyor(authHeader);
+    const result = await this.db.query(
+      `UPDATE invitation_requests
+       SET survey_date = $2, survey_reschedule_note = $3, updated_at = now()
+       WHERE id = $1 AND (status = 'approved' OR approved_at IS NOT NULL)
+       RETURNING id, customer_name, phone, email, survey_date, project_type, estimated_budget,
+        project_address, latitude, longitude, notes, survey_reschedule_note, status, email_verified_at, whatsapp_verified_at, approved_at, user_id, created_at`,
+      [id, dto.surveyDate, dto.reason.trim()],
+    );
+
+    const row = result.rows[0];
+    if (!row) throw new NotFoundException("Jadwal survey tidak ditemukan atau belum approved.");
+    await this.verification.sendSurveyRescheduledWhatsapp({
+      phone: String(row.phone),
+      customerName: String(row.customer_name),
+      surveyDate: new Date(String(row.survey_date)),
+      reason: dto.reason.trim(),
+    });
+
+    return { data: mapInvitation(row), message: "Jadwal survey berhasil diubah dan notifikasi WhatsApp dikirim ke client." };
+  }
   verifyEmail(email: string, token: string) {
     return this.verification.verifyEmail(email.trim().toLowerCase(), token);
   }
@@ -225,6 +247,14 @@ export class InvitationService {
     return row;
   }
 
+  private async requireSurveyor(authHeader?: string) {
+    const token = authHeader?.replace(/^Bearer\s+/i, "");
+    if (!token) throw new UnauthorizedException("Login surveyor diperlukan.");
+    const payload = await this.jwt.verifyAsync<{ sub: string; role: string }>(token).catch(() => null);
+    if (!payload) throw new UnauthorizedException("Token login tidak valid.");
+    if (payload.role !== "surveyor" && payload.role !== "admin") throw new ForbiddenException("Hanya surveyor yang boleh mengubah jadwal survey.");
+    return payload;
+  }
   private async requireUser(authHeader?: string) {
     const token = authHeader?.replace(/^Bearer\s+/i, "");
     if (!token) throw new UnauthorizedException("Login diperlukan.");
@@ -257,6 +287,7 @@ function mapInvitation(row: Record<string, unknown>) {
     latitude: Number(row.latitude),
     longitude: Number(row.longitude),
     notes: row.notes,
+    surveyRescheduleNote: row.survey_reschedule_note,
     status: row.status,
     emailVerified: Boolean(row.email_verified_at),
     whatsappVerified: Boolean(row.whatsapp_verified_at),

@@ -58,3 +58,11 @@ export class VerifyInvitationWhatsappDto {
   @IsNotEmpty()
   otp!: string;
 }
+export class RescheduleSurveyDto {
+  @IsDateString()
+  surveyDate!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  reason!: string;
+}

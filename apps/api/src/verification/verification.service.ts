@@ -83,6 +83,22 @@ export class VerificationService {
     );
   }
 
+  async sendSurveyRescheduledWhatsapp(input: { phone: string; customerName: string; surveyDate: Date; reason: string }) {
+    const formattedDate = new Intl.DateTimeFormat("id-ID", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Asia/Jakarta",
+    }).format(input.surveyDate);
+
+    await this.sendWhatsapp(
+      input.phone,
+      "Halo " + input.customerName + ", jadwal kunjungan survey New Raj Interior Anda telah diubah menjadi " + formattedDate + ".\n\nCatatan: " + input.reason + "\n\nSilakan hubungi tim kami jika jadwal tersebut perlu disesuaikan kembali.",
+    );
+  }
   async sendWhatsappOtp(target: string, userId?: string) {
     const otp = String(randomInt(100000, 999999));
     await this.storeToken({ target: normalizePhone(target), channel: "whatsapp", token: otp, userId, minutes: 10 });

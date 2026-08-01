@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -41,6 +41,14 @@ const ReadOnlyLocationMap = dynamic(
   },
 );
 
+type SurveyReport = {
+  id: string;
+  photoLink?: string | null;
+  videoLink?: string | null;
+  measurementNotes: string;
+  createdAt: string;
+};
+
 type InvitationRequest = {
   id: string;
   customerName: string;
@@ -59,6 +67,8 @@ type InvitationRequest = {
   userId?: string | null;
   notes?: string | null;
   surveyRescheduleNote?: string | null;
+  surveyorApprovedAt?: string | null;
+  surveyReports?: SurveyReport[];
   createdAt: string;
 };
 
@@ -193,7 +203,7 @@ export default function DashboardPage() {
             isLoading={isLoadingInvitations}
             error={invitationError}
             surveyorName={currentUser.name || "Surveyor"}
-            onRescheduled={(updated) => setInvitations((current) => current.map((item) => item.id === updated.id ? updated : item))}
+            onUpdated={(updated) => setInvitations((current) => current.map((item) => item.id === updated.id ? updated : item))}
           />
         </div>
       </main>
@@ -353,7 +363,7 @@ export default function DashboardPage() {
                         <div className="flex items-start justify-between gap-4">
                           <div className="min-w-0">
                             <p className="font-semibold leading-5">{item.customerName}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">{item.projectType} • {item.estimatedBudget}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{item.projectType} â€¢ {item.estimatedBudget}</p>
                           </div>
                           <InvitationStatusBadge item={item} />
                         </div>
@@ -533,15 +543,16 @@ function SurveyorDashboard({
   isLoading,
   error,
   surveyorName,
-  onRescheduled,
+  onUpdated,
 }: {
   invitations: InvitationRequest[];
   isLoading: boolean;
   error: string | null;
   surveyorName: string;
-  onRescheduled: (updated: InvitationRequest) => void;
+  onUpdated: (updated: InvitationRequest) => void;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [reportItem, setReportItem] = useState<InvitationRequest | null>(null);
   const selected = invitations.find((item) => item.id === selectedId) ?? null;
 
   return (
@@ -570,6 +581,8 @@ function SurveyorDashboard({
                 <th className="px-4 py-3 font-semibold">Waktu</th>
                 <th className="px-4 py-3 font-semibold">Lokasi</th>
                 <th className="px-4 py-3 font-semibold">Project</th>
+                <th className="px-4 py-3 font-semibold">Surveyor</th>
+                <th className="px-4 py-3 font-semibold">Report</th>
                 <th className="px-4 py-3 font-semibold">Aksi</th>
               </tr>
             </thead>
@@ -591,6 +604,8 @@ function SurveyorDashboard({
                       </div>
                     </td>
                     <td className="px-4 py-4"><Badge variant="muted">{item.projectType}</Badge></td>
+                    <td className="px-4 py-4">{item.surveyorApprovedAt ? <Badge variant="success">Approved</Badge> : <Badge variant="warning">Belum Approve</Badge>}</td>
+                    <td className="px-4 py-4 text-muted-foreground">{item.surveyReports?.length || 0} report</td>
                     <td className="px-4 py-4">
                       <div className="flex gap-2">
                         <Button size="sm" type="button" onClick={() => setSelectedId(item.id)}>
@@ -598,6 +613,9 @@ function SurveyorDashboard({
                         </Button>
                         <Button asChild size="sm" className="bg-white text-foreground shadow-sm hover:bg-muted" variant="outline">
                           <a href={googleMapsUrl} target="_blank" rel="noreferrer">Visit</a>
+                        </Button>
+                        <Button size="sm" className="bg-white text-foreground shadow-sm hover:bg-muted" variant="outline" type="button" onClick={() => setReportItem(item)}>
+                          Report
                         </Button>
                       </div>
                     </td>
@@ -613,7 +631,18 @@ function SurveyorDashboard({
         <SurveyDetailModal
           item={selected}
           onClose={() => setSelectedId(null)}
-          onRescheduled={onRescheduled}
+          onUpdated={onUpdated}
+        />
+      ) : null}
+
+      {reportItem ? (
+        <SurveyReportModal
+          item={reportItem}
+          onClose={() => setReportItem(null)}
+          onSuccess={(updated) => {
+            onUpdated(updated);
+            setReportItem(null);
+          }}
         />
       ) : null}
     </section>
@@ -623,11 +652,11 @@ function SurveyorDashboard({
 function SurveyDetailModal({
   item,
   onClose,
-  onRescheduled,
+  onUpdated,
 }: {
   item: InvitationRequest;
   onClose: () => void;
-  onRescheduled: (updated: InvitationRequest) => void;
+  onUpdated: (updated: InvitationRequest) => void;
 }) {
   return (
     <div className="fixed inset-0 z-[1400] overflow-y-auto bg-black/55 px-4 py-6" role="dialog" aria-modal="true">
@@ -639,16 +668,40 @@ function SurveyDetailModal({
           </div>
           <Button className="bg-white text-foreground shadow-sm hover:bg-muted" variant="outline" type="button" onClick={onClose}>Tutup</Button>
         </div>
-        <SurveyDetail item={item} onRescheduled={onRescheduled} />
+        <SurveyDetail item={item} onUpdated={onUpdated} />
       </div>
     </div>
   );
 }
 
-function SurveyDetail({ item, onRescheduled }: { item: InvitationRequest; onRescheduled: (updated: InvitationRequest) => void }) {
+function SurveyDetail({ item, onUpdated }: { item: InvitationRequest; onUpdated: (updated: InvitationRequest) => void }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [actionError, setActionError] = useState("");
   const position = { lat: item.latitude, lng: item.longitude };
   const googleMapsUrl = "https://www.google.com/maps/dir/?api=1&destination=" + item.latitude + "," + item.longitude + "&travelmode=driving";
+
+  async function approveSurveyorVisit() {
+    setActionError("");
+    setIsApproving(true);
+    try {
+      const token = typeof window !== "undefined" ? window.localStorage.getItem("newraj_access_token") : null;
+      const response = await fetch(API_BASE_URL + "/invitation-requests/" + item.id + "/surveyor-approve", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + (token ?? "") },
+      });
+      const payload = (await response.json().catch(() => ({}))) as { data?: InvitationRequest; message?: string | string[] };
+      if (!response.ok || !payload.data) {
+        const message = Array.isArray(payload.message) ? payload.message.join(", ") : payload.message;
+        throw new Error(message || "Approval surveyor gagal.");
+      }
+      onUpdated(payload.data);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Approval surveyor gagal.");
+    } finally {
+      setIsApproving(false);
+    }
+  }
 
   return (
     <section className="rounded-lg border bg-white p-6 shadow-sm">
@@ -658,6 +711,10 @@ function SurveyDetail({ item, onRescheduled }: { item: InvitationRequest; onResc
           <p className="mt-2 text-sm text-muted-foreground">{item.projectType}</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
+          <Button className="h-11" type="button" disabled={Boolean(item.surveyorApprovedAt) || isApproving} onClick={approveSurveyorVisit}>
+            <CheckBadgeIcon className="h-5 w-5" />
+            {item.surveyorApprovedAt ? "Approved Surveyor" : isApproving ? "Mengirim..." : "Approve Visit"}
+          </Button>
           <Button className="h-11 bg-white text-foreground shadow-sm hover:bg-muted" type="button" variant="outline" onClick={() => setIsModalOpen(true)}>
             <CalendarDaysIcon className="h-5 w-5" />
             Ubah Jadwal
@@ -676,7 +733,9 @@ function SurveyDetail({ item, onRescheduled }: { item: InvitationRequest; onResc
         <DetailBox label="Tanggal" value={formatDate(item.surveyDate)} />
         <DetailBox label="Waktu" value={formatTime(item.surveyDate)} />
         <DetailBox label="Koordinat" value={item.latitude + ", " + item.longitude} />
+        <DetailBox label="Approval Surveyor" value={item.surveyorApprovedAt ? formatDateTime(item.surveyorApprovedAt) : "Belum approved"} />
       </div>
+      {actionError ? <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div> : null}
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
         <div className="space-y-5">
@@ -699,6 +758,7 @@ function SurveyDetail({ item, onRescheduled }: { item: InvitationRequest; onResc
           <a className="flex h-12 items-center justify-center gap-2 rounded-md border bg-white px-4 text-sm font-semibold shadow-sm hover:bg-muted" href={"tel:" + item.phone}>
             <PhoneIcon className="h-5 w-5" /> Call Client
           </a>
+          <SurveyReportList reports={item.surveyReports || []} />
         </div>
         <div className="overflow-hidden rounded-lg border bg-white shadow-sm">
           <ReadOnlyLocationMap position={position} />
@@ -709,7 +769,7 @@ function SurveyDetail({ item, onRescheduled }: { item: InvitationRequest; onResc
           item={item}
           onClose={() => setIsModalOpen(false)}
           onSuccess={(updated) => {
-            onRescheduled(updated);
+            onUpdated(updated);
             setIsModalOpen(false);
           }}
         />
@@ -718,6 +778,109 @@ function SurveyDetail({ item, onRescheduled }: { item: InvitationRequest; onResc
   );
 }
 
+
+function SurveyReportList({ reports }: { reports: SurveyReport[] }) {
+  return (
+    <div className="rounded-lg border bg-white p-5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold">List Report Survey</p>
+        <Badge variant="muted">{reports.length} report</Badge>
+      </div>
+      {reports.length === 0 ? (
+        <p className="mt-3 text-sm text-muted-foreground">Belum ada report survey.</p>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {reports.map((report) => (
+            <div key={report.id} className="rounded-md border bg-[#faf9f5] p-4">
+              <p className="text-xs font-semibold text-muted-foreground">{formatDateTime(report.createdAt)}</p>
+              <p className="mt-2 whitespace-pre-line text-sm leading-7 text-newraj-charcoal">{report.measurementNotes}</p>
+              <div className="mt-3 flex flex-wrap gap-2 text-sm">
+                {report.photoLink ? <a className="font-semibold text-newraj-gold underline" href={report.photoLink} target="_blank" rel="noreferrer">Link Foto</a> : null}
+                {report.videoLink ? <a className="font-semibold text-newraj-gold underline" href={report.videoLink} target="_blank" rel="noreferrer">Link Video</a> : null}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SurveyReportModal({
+  item,
+  onClose,
+  onSuccess,
+}: {
+  item: InvitationRequest;
+  onClose: () => void;
+  onSuccess: (updated: InvitationRequest) => void;
+}) {
+  const [photoLink, setPhotoLink] = useState("");
+  const [videoLink, setVideoLink] = useState("");
+  const [measurementNotes, setMeasurementNotes] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setIsSubmitting(true);
+    try {
+      const token = typeof window !== "undefined" ? window.localStorage.getItem("newraj_access_token") : null;
+      const response = await fetch(API_BASE_URL + "/invitation-requests/" + item.id + "/survey-report", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + (token ?? ""),
+        },
+        body: JSON.stringify({ photoLink, videoLink, measurementNotes }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { data?: InvitationRequest; message?: string | string[] };
+      if (!response.ok || !payload.data) {
+        const message = Array.isArray(payload.message) ? payload.message.join(", ") : payload.message;
+        throw new Error(message || "Report survey gagal disimpan.");
+      }
+      onSuccess(payload.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Report survey gagal disimpan.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[1600] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">
+      <form onSubmit={handleSubmit} className="relative z-[1601] w-full max-w-xl rounded-lg border bg-white p-6 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="font-display text-2xl font-bold">Report Survey</h3>
+            <p className="mt-1 text-sm text-newraj-charcoal">Isi link dokumentasi dan catatan hasil pengukuran untuk {item.customerName}.</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-md border px-3 py-1 text-sm text-newraj-charcoal">Tutup</button>
+        </div>
+        {error ? <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+        <div className="mt-5 grid gap-4">
+          <label className="grid gap-2 text-sm font-semibold">
+            Link Foto
+            <input value={photoLink} onChange={(event) => setPhotoLink(event.target.value)} placeholder="https://drive.google.com/..." className="rounded-md border px-3 py-2 text-sm font-normal outline-none focus:border-newraj-gold" />
+          </label>
+          <label className="grid gap-2 text-sm font-semibold">
+            Link Video
+            <input value={videoLink} onChange={(event) => setVideoLink(event.target.value)} placeholder="https://drive.google.com/..." className="rounded-md border px-3 py-2 text-sm font-normal outline-none focus:border-newraj-gold" />
+          </label>
+          <label className="grid gap-2 text-sm font-semibold">
+            Detail Pengukuran
+            <textarea value={measurementNotes} onChange={(event) => setMeasurementNotes(event.target.value)} rows={6} required placeholder="Catatan ukuran, kondisi lokasi, kebutuhan material, akses, dan hal penting lain." className="resize-none rounded-md border px-3 py-2 text-sm font-normal outline-none focus:border-newraj-gold" />
+          </label>
+        </div>
+        <div className="mt-6 flex justify-end gap-3">
+          <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
+          <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Menyimpan..." : "Simpan Report"}</Button>
+        </div>
+      </form>
+    </div>
+  );
+}
 function RescheduleModal({
   item,
   onClose,
@@ -739,7 +902,7 @@ function RescheduleModal({
     setIsSubmitting(true);
 
     try {
-      const token = typeof window !== "undefined" ? window.localStorage.getItem("newraj_token") : null;
+      const token = typeof window !== "undefined" ? window.localStorage.getItem("newraj_access_token") : null;
       const response = await fetch(API_BASE_URL + "/invitation-requests/" + item.id + "/reschedule-survey", {
         method: "POST",
         headers: {
@@ -940,3 +1103,4 @@ function formatApiMessage(message: string | string[] | undefined) {
   if (Array.isArray(message)) return message.join(" ");
   return message;
 }
+
